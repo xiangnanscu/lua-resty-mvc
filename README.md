@@ -1,16 +1,15 @@
 # lua-resty-model
 an  easy-to-use sql mapper
 # Quick start
-The model api takes a table or a string. If a table is given, you can enjoin invocation chaining:
+See [quickstart.lua](https://github.com/pronan/lua-resty-model/blob/master/quickstart.lua "view source file").
+The model api takes a table or a string parameter. If a table is given, you can enjoy chaining invocation:
 
     User:where{name='Tom'}:where{phone='123456'}
 
 If a string is given, you have to write all conditions in one time:
 
     User:where"name='Tom' and phone='123456'"
-But string is more flexible and powerful.
-
-See [quickstart.lua](https://github.com/pronan/lua-resty-model/blob/master/quickstart.lua "view source file").
+But string is more flexible and powerful as it is directly passed to the WHERE clause.
 
 # Todo
 1. Foreign keys support
