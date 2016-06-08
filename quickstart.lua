@@ -22,15 +22,19 @@ local User = Model:new{
 }
 --create a user in the database and return a user object which you can read or modify later.
 local user = User:create{name='Kate', email='abc@qq.com', phone='13355556666'}
+-- update the return user object 
 user.name = 'Tom'
 user:save()
+-- read 
 user = User:get{id=user.id}
-user.phone = '18899996666'  --update
+--update
+user.phone = '18899996666'  
 user:save()
-user:delete() --delete
+--delete
+user:delete() 
 --return all user
 res = User:all()
---find all user whose name is `Tom` and id greater than 5 , in three ways.
+--find all user whose name is `Tom` and id is greater than 5 in three ways.
 res = User:where{name='Tom', id__gt=5}:exec()
 res = User:where{name='Tom'}:where{id__gt=5}:exec()
 res = User:where"name='Tom' and id>5":exec()
