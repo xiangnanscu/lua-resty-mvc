@@ -1,0 +1,2 @@
+2016/06/08 14:57:22 [alert] 9408#5344: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/06/08 14:57:22 [alert] 8820#13588: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
