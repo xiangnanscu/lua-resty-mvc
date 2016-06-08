@@ -17,8 +17,13 @@ an  easy-to-use sql mapper
     end
     local User = Model:new{
         table_name = 'users', 
-        fields = { {name = 'id' }, {name = 'name'}, 
-                   {name = 'email'}, {name = 'phone'}, },}
+        fields     = {
+            {name = 'id' }, 
+            {name = 'name'}, 
+            {name = 'email'}, 
+            {name = 'phone'}, 
+        }, 
+    }
     --create a user in the database and return a user object which you can read or modify later.
     local user = User:create{name='Kate', email='abc@qq.com', phone='13355556666'}
     user.name = 'Tom'
@@ -39,3 +44,4 @@ an  easy-to-use sql mapper
 # Todo
 1. Foreign keys support
 2. Auto create database table from Model if neccessary
+3. Add `using` api in Model, RawQuery and QueryManager.
