@@ -15,3 +15,4 @@ But string is more flexible and powerful as it is directly passed to the WHERE c
 1. Foreign keys support
 2. Auto create database table from Model if neccessary
 3. Add `using` api in Model, RawQuery and QueryManager.
+4. Add validations to fields so when calling `save` method the model will check the value.
