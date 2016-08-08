@@ -1,5 +1,5 @@
 local Model = require"resty.model".Model
-local Query = require"resty.model".RawQuery
+local Query = require"resty.model".query
 
 local res, err = Query("drop table if exists users")
 res, err = Query([[create table users(

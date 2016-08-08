@@ -1,6 +1,6 @@
 local encode = require"cjson".encode
 local Model = require"resty.model".Model
-local Query = require"resty.model".RawQuery
+local Query = require"resty.model".query
 
 local Sale = Model:new{table_name='sales', 
     fields = {
