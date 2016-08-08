@@ -165,7 +165,7 @@ function Row.save(self)
         return query(string.format('UPDATE %s SET %s WHERE id=%s;', 
             self.table_name, table.concat(parse_filter_args(valid_attrs), ", "), self.id))
     else
-        local create_columns, create_values = _get_create_args(valid_attrs)
+        local create_columns, create_values = _get_insert_args(valid_attrs)
         return query(string.format('INSERT INTO %s (%s) VALUES (%s);', 
             self.table_name, create_columns, create_values))
     end
