@@ -1,6 +1,6 @@
-local Query = require"resty.model.query".single
-local Model = require"resty.model.model"
-local Field = require"resty.model.field"
+local Query = require"resty.mvc.query".single
+local Model = require"resty.mvc.model"
+local Field = require"resty.mvc.field"
 
 local M = {}
 

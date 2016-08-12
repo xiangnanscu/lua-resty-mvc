@@ -1,4 +1,4 @@
-local Form = require"resty.model.form"
+local Form = require"resty.mvc.form"
 
 local M = Form:new{
     row_template = [[<div class="form-group"> %s %s %s %s </div>]],

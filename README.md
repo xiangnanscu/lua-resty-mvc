@@ -34,7 +34,8 @@ location = /register {
                 end
                 user = User:get{id=1}
                 return ngx.print(string.format(
-                    'Congratulations! You have created a user successfully! Name:%s, Password:%s', user.username, user.password))
+                    'Congratulations! You have created a user successfully!'
+                    ..'Name:%s, Password:%s', user.username, user.password))
             end
         else
             form = UserForm{}

@@ -1,4 +1,4 @@
-local Field = require"resty.model.field" 
+local Field = require"resty.mvc.field" 
 
 local M = {}
 M.CharField = Field.CharField:new{attrs={class='form-control'}}

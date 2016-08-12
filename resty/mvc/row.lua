@@ -1,8 +1,8 @@
 -- Copyright (C) 2013-2016 Nan Xiang (Yibin), Lizhi Inc.
 -- dependency: `Row.save` method requires a field has a `clean` method 
-local query = require"resty.model.query".single
-local _to_string = require"resty.model.init"._to_string
-local _to_kwarg_string = require"resty.model.init"._to_kwarg_string
+local query = require"resty.mvc.query".single
+local _to_string = require"resty.mvc.init"._to_string
+local _to_kwarg_string = require"resty.mvc.init"._to_kwarg_string
 local rawget = rawget
 local setmetatable = setmetatable
 local ipairs = ipairs

@@ -1,7 +1,7 @@
 local encode = require"cjson".encode
-local Model = require"resty.model.model"
-local Query = require"resty.model.query".single
-local Field = require"resty.model.field"
+local Model = require"resty.mvc.model"
+local Query = require"resty.mvc.query".single
+local Field = require"resty.mvc.field"
 
 local M = {}
 local function sametable(a, b)
