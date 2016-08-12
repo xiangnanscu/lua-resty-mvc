@@ -6,7 +6,7 @@ With just a plain folder with several simple files, you can enjoy basic but most
 location = /register {
     content_by_lua_block{
         -- create table in the database
-        local Query = require"resty.model.query".single
+        local Query = require"resty.mvc.query".single
         local res, err = Query("drop table if exists users")
         assert(res, err)
         res, err = Query([[create table users(
@@ -20,9 +20,9 @@ location = /register {
         -- MVC stuff starts
         local UserForm = require"forms".UserForm
         local User = require"models".User
-
         local req = ngx.req
         local form;
+
         if req.get_method()=='POST' then
             req.read_body()
             form = UserForm{data=req.get_post_args()}
