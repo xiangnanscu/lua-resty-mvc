@@ -1,17 +1,40 @@
 local encode = require"cjson".encode
-local Model = require"resty.model".Model
-local Query = require"resty.model".query
+local Model = require"resty.model.model"
+local Query = require"resty.model.query".single
+local Field = require"resty.model.field"
 
-local Sale = Model:new{table_name='sales', 
-    fields = {
-        {name = 'id' }, 
-        {name = 'name'}, 
-        {name = 'catagory'}, 
-        {name = 'price'}, 
-        {name = 'weight'}, 
-        {name = 'time'}, 
-    }, 
-}
+local M = {}
+local function sametable(a, b)
+    for k,v in pairs(a) do
+        if type(b[k])~=type(v) then
+            return
+        end
+        if type(v)=='table' then
+            if not sametable(b[k],v) then
+                return
+            end
+        else
+            if b[k]~=v then
+                return
+            end
+        end
+    end
+    for k,v in pairs(b) do
+        if type(a[k])~=type(v) then
+            return
+        end
+        if type(v)=='table' then
+            if not sametable(a[k],v) then
+                return
+            end
+        else
+            if a[k]~=v then
+                return
+            end
+        end
+    end
+    return true
+end
 local data = {
     {'apple',  'fruit',     8, 4,  '2016/3/3 12:22'}, 
     {'potato', 'vegetable', 3, 5,  '2016/3/4 8:02'}, 
@@ -26,142 +49,162 @@ local data = {
     {'grape',  'fruit',     5, 20, '2016/3/14 23:00'}, 
     {'tomato', 'vegetable', 8, 200,'2016/3/24 23:12'}, 
 }
-local res, err = Query("drop table if exists sales")
-res, err = Query([[create table sales(
-    id       serial primary key,
-    name     varchar(10), 
-    catagory varchar(15), 
-    price    integer,  
-    weight   float, 
-    time     datetime);]]
-)
-if not res then
-    return ngx.say(err)
-end
-for i,v in ipairs(data) do
-    local name, catagory, price, weight, time  = unpack(v)
-    res, err = Query(string.format(
-        [[insert into sales(name, catagory, price, weight, time) values ('%s','%s', %s, %s, '%s');]],
-        unpack(v)
-    ))
-    if not res then
-        return ngx.say(err)
-    end
-end
-
-local function has_error(codi, err)
-    if not codi then
-        return err
-    else
-        return nil
-    end
-end
-local statements = {
-    {Sale:where{}, 
-        function(res)return has_error(#res==#data, 'total amount should equal'..#data)end}, 
-    
-    {Sale:select{'name', 'id'}:where'id=1', 
-        function(res)return has_error(tonumber(res[1].id)==1, 'id should equal 1')end}, 
-    
-    {Sale:where{id__lte=5}, 
-        function(res)return has_error(#res==5, 'the count of rows should be 5')end}, 
-    
-    {Sale:where{id=3}, 
-        function(res)return has_error(tonumber(res[1].id)==3, 'id should equal 3')end}, 
-    
-    {Sale:where{name='apple'}:where{time__gt='2016-03-11 23:59:00'}, 
-        function(res)return has_error(#res==1, 'should be only one row')end}, 
-    
-    {Sale:where'catagory="fruit" and (weight>10 or price=8)':order'time', 
-        function(res)return has_error(#res==6, 'should return 6 rows')end},    
-    
-    {Sale:where{name='apple'}:order'price desc', 
-        function(res)return has_error(#res==3, 'the count of apple rows should be 3')end}, 
-    
-    {Sale:select'name, count(*) as cnt':group'name':order'cnt desc', 
-        function(res)return has_error(res[1].name=='apple', 'the amount of apple should be the most')end}, 
-    
-    {Sale:select'name, price*weight as value':order'value', 
-        function(res)return has_error(res[1].name=='carrot', 'the value of carrot should be the least')end}, 
-    
-    {Sale:select'catagory, sum(weight) as total_weight':group'catagory':order'total_weight desc', 
-        function(res)return has_error(res[1].catagory=='vegetable', 'the weight of vegetable should be the most')end}, 
-    
-    {Sale:select{'name', 'sum(weight*price) as value'}:group{'name'}:having{value__gte=200}:order'value desc', 
-        function(res)return has_error(#res==2, 'there should only be two names that have revenue greater than 200')end}, 
+local Sale = Model:class{table_name='sales', 
+    fields = {
+        id = Field.IntegerField{ min=1}, 
+        name = Field.CharField{ maxlength=50},
+        catagory = Field.CharField{maxlength=15},  
+        price = Field.IntegerField{ min=0}, 
+        weight = Field.IntegerField{ min=1}, 
+        time = Field.CharField{ maxlength=50}, 
+    }, 
 }
-local function print_results (res) 
-    if res[1]~=nil then
-        local columns = {}
-        for k,v in pairs(res[1]) do
-            columns[#columns+1] = k
-        end
-        ngx.say('<table>')
-        ngx.say('<tr>')
-        for i,col in ipairs(columns) do
-            ngx.say( string.format('<th>%s</th>', col))
-        end
-        ngx.say('</tr>')
-        for i,row in ipairs(res) do
-            ngx.say('<tr>')
-            for i,col in ipairs(columns) do
-                ngx.say(string.format('<td>%s</td>', row[col]))
-            end
-            ngx.say('</tr>')
-        end
-        ngx.say('</table>')
-
+M[#M+1]=function ()
+    local res, err = Query("drop table if exists sales")
+    if not res then
+        return err
     end
-end
-local function print_line(text, err)
-    if err then
-        ngx.say('<div style="color:red"> ERROR:', text, '</div>')
-    else
-        ngx.say('<div>', text, '</div>')
+    res, err = Query([[create table sales(
+        id       serial primary key,
+        name     varchar(50), 
+        catagory varchar(15), 
+        price    integer,  
+        weight   float, 
+        time     datetime);]])
+    if not res then
+        return err
+    end
+    for i,v in ipairs(data) do
+        res, err = Sale:create{name=v[1], catagory=v[2], price=v[3], weight=v[4], time=v[5]}
+        if not res then
+            return err
+        end
     end
 end
 
-ngx.say('<html><head><style>th,td{border:1px solid #ccc;}table{border-collapse:collapse;}</style></head><body>')
-for i,v in ipairs(statements) do
-    local statement, check_error = unpack(v)
-    local res, err, errno, sqlstate = statement:exec()
-    if res~=nil then --sql returned normally
-        err = check_error(res)
-        if err then
-            print_line(statement:to_sql(), 1)
-            print_line(err, 1)
-        else
-            print_line(statement:to_sql())           
-        end
-        print_results(res)  
-    else --something wrong with sql
-        print_line(statement:to_sql(), 1)
-        print_line(err, 1)
+M[#M+1]=function( ... )
+    local a = Sale:all()
+    local b = Sale:all()
+    if not sametable(a, b) then
+        return 'the table returned from `-Sale:where{}` doesnot equal the one from `Sale:all()`'
     end
-    ngx.say('<br/>')
+    if #a ~= #data then 
+        return '`Sale:all()` doesnot return all objects'
+    end
 end
---update test
-local statement=Sale:where'id<3'
-for i,v in ipairs(statement:exec()) do
-    v.blablabla = 123 --attribute that is not in fields
-    v.price=10+i
+M[#M+1]=function (self)
+    local res, err = Sale:select{'name', 'id'}:where'id=1':exec()
+    if not res then
+        return err
+    end
+    if #res ~= 1 then
+        return 'should return only one row, but get '..#res
+    end
+    local obj = res[1]
+    if type(obj)~='table' then
+        return 'select clause should return a table'
+    end
+    for k,v in pairs(obj) do
+        if k~='name' and k~='id' then
+            return 'key `'..k..'` should not exists'
+        end
+    end
+    if obj.id ~= '1' then
+        return 'id doesnot equal 1'
+    end
+end
+
+M[#M+1]=function(self)
+    local res = Sale:where{id__lte=5}:exec()
+    if #res~=5 then
+        return 'the count of rows should be 5'
+    end
+    local res = Sale:where{id__lt=5}:exec()
+    if #res~=4 then
+        return 'the count of rows should be 4'
+    end
+end
+M[#M+1]=function(self)
+    local res = Sale:where{name='apple'}:where{time__gt='2016-03-11 23:59:00'}:exec()
+    if #res~=1 then
+        return 'the count of rows should be 1'
+    end
+end
+M[#M+1]=function(self)
+    local res = Sale:where'catagory="fruit" and (weight>10 or price=8)':order'time':exec()
+    if #res~=6 then
+        return 'the count of rows should be 6'
+    end
+end
+M[#M+1]=function(self)
+    local res = Sale:select'name, count(*) as cnt':group'name':order'cnt desc':exec()
+    if res[1].name~='apple' then
+        return 'the amount of apple should be the most'
+    end
+end
+M[#M+1]=function(self)
+    local res = Sale:select'name, price*weight as value':order'value':exec()
+    if res[1].name~='carrot' then
+        return 'the value of carrot should be the least'
+    end
+end
+M[#M+1]=function(self)
+    local res = Sale:select'catagory, sum(weight) as total_weight':group'catagory':order'total_weight desc':exec()
+    if res[1].catagory~='vegetable' then
+        return 'the weight of vegetable should be the most'
+    end
+end
+M[#M+1]=function(self)
+    local res = Sale:select{'name', 'sum(weight*price) as value'}:group{'name'}:having{value__gte=200}:order'value desc':exec()
+    if #res~=2 then
+        return 'there should only be two names that have revenue greater than 200'
+    end
+end
+M[#M+1]=function(self)
+    --update test
+    local statement=Sale:where'id<5'
+    for i,v in ipairs(statement:exec()) do
+        v.blaaa = 'sdfd'
+        v.blablabla = 123 --attribute that is not in fields
+        v.price=10+i
+        v:save()
+    end
+    for i,v in ipairs(statement:exec()) do
+        if v.price~=10+i then
+            return 'price update doesnot work as expected'
+        end
+    end
+    --create test
+    local v = Sale:create{name='newcomer', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=15}
+    local res = Sale:all()
+    if res[#res].name~=v.name then
+        return 'the name of the last element should be newcomer'
+    end
+    v.catagory='wwwww'
     v:save()
+    v=Sale:get{name='newcomer'}
+    if v.catagory~='wwwww' then 
+        return 'the catagory of the last element should be wwwww'
+    end
+    v = Sale:get'catagory = "wwwww"'
+    v.price=-2
+    local res,errs=v:save()
+    if errs==nil then
+        return 'should be some errors.'
+    end
+    v:delete()
+    if #Sale:where"catagory = 'wwwww'":exec()~=0 then
+        return 'delete clause doesnot work. '
+    end
+    v = Sale{name='newcomer2', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=150}
+    v:save()
+    v = Sale:get{name='newcomer2'}
+    if v.weight~=150 then
+        return 'newcomer2 weight should be 150'
+    end
 end
-for i,v in ipairs(statement:exec()) do
-    assert(v.price==10+i, 'price update should take effect')
-end
-print_line(statement:to_sql())
-print_results(statement:exec())
+return M
 
---create test
-v = Sale:create{name='newcomer', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=15}
-local res = Sale:all()
-assert(res[#res].name==v.name, 'the name of the last element should be newcomer')
+    
 
---delete test
-local v = Sale:get'id = 1'
-v:delete()
-assert(#Sale:where"id=1":exec()==0, 'id=1 item should not exists')
 
-ngx.say('<h1>all test passed!</h1>')
-ngx.say('</body></html>')
