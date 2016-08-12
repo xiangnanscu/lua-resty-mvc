@@ -1,4 +1,4 @@
-# lua-resty-model
+# lua-resty-mvc
 **You don't need that complicated MVC framework!**
 With just a plain folder with several simple files, you can enjoy basic but most frequently used MVC features.
 # Synopsis
