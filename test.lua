@@ -1,7 +1,7 @@
 local encode = require"cjson".encode
 local Model = require"resty.mvc.model"
 local Query = require"resty.mvc.query".single
-local Field = require"resty.mvc.field"
+local Field = require"resty.mvc.modelfield"
 
 local M = {}
 local function sametable(a, b)
@@ -52,11 +52,11 @@ local data = {
 local Sale = Model:class{table_name='sales', 
     fields = {
         id = Field.IntegerField{ min=1}, 
-        name = Field.CharField{ maxlength=50},
-        catagory = Field.CharField{maxlength=15},  
+        name = Field.CharField{ maxlen=50},
+        catagory = Field.CharField{maxlen=15},  
         price = Field.IntegerField{ min=0}, 
         weight = Field.IntegerField{ min=1}, 
-        time = Field.CharField{ maxlength=50}, 
+        time = Field.CharField{ maxlen=50}, 
     }, 
 }
 M[#M+1]=function ()
@@ -75,7 +75,8 @@ M[#M+1]=function ()
         return err
     end
     for i,v in ipairs(data) do
-        res, err = Sale:create{name=v[1], catagory=v[2], price=v[3], weight=v[4], time=v[5]}
+        local ins = Sale:instance{name=v[1], catagory=v[2], price=v[3], weight=v[4], time=v[5]}
+        local res, err = ins:create()
         if not res then
             return err
         end
@@ -137,7 +138,10 @@ M[#M+1]=function(self)
     end
 end
 M[#M+1]=function(self)
-    local res = Sale:select'name, count(*) as cnt':group'name':order'cnt desc':exec()
+    local res, err = Sale:select'name, count(*) as cnt':group'name':order'cnt desc':exec()
+    if not res then
+        return err
+    end
     if res[1].name~='apple' then
         return 'the amount of apple should be the most'
     end
@@ -155,7 +159,10 @@ M[#M+1]=function(self)
     end
 end
 M[#M+1]=function(self)
-    local res = Sale:select{'name', 'sum(weight*price) as value'}:group{'name'}:having{value__gte=200}:order'value desc':exec()
+    local res, err = Sale:select{'name', 'sum(weight*price) as value'}:group{'name'}:having{value__gte=200}:order'value desc':exec()
+    if not res then
+        return err
+    end
     if #res~=2 then
         return 'there should only be two names that have revenue greater than 200'
     end
@@ -167,7 +174,7 @@ M[#M+1]=function(self)
         v.blaaa = 'sdfd'
         v.blablabla = 123 --attribute that is not in fields
         v.price=10+i
-        v:save()
+        v:update()
     end
     for i,v in ipairs(statement:exec()) do
         if v.price~=10+i then
@@ -175,20 +182,21 @@ M[#M+1]=function(self)
         end
     end
     --create test
-    local v = Sale:create{name='newcomer', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=15}
+    local v = Sale:instance{name='newcomer', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=15}
+    v:create()
     local res = Sale:all()
     if res[#res].name~=v.name then
         return 'the name of the last element should be newcomer'
     end
     v.catagory='wwwww'
-    v:save()
+    v:update()
     v=Sale:get{name='newcomer'}
     if v.catagory~='wwwww' then 
         return 'the catagory of the last element should be wwwww'
     end
     v = Sale:get'catagory = "wwwww"'
     v.price=-2
-    local res,errs=v:save()
+    local res,errs=v:update()
     if errs==nil then
         return 'should be some errors.'
     end
@@ -196,8 +204,8 @@ M[#M+1]=function(self)
     if #Sale:where"catagory = 'wwwww'":exec()~=0 then
         return 'delete clause doesnot work. '
     end
-    v = Sale{name='newcomer2', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=150}
-    v:save()
+    v = Sale:instance{name='newcomer2', catagory='fruit', time='2016-03-29 23:12:00', price=12, weight=150}
+    v:create()
     v = Sale:get{name='newcomer2'}
     if v.weight~=150 then
         return 'newcomer2 weight should be 150'

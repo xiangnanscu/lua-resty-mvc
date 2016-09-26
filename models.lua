@@ -1,16 +1,18 @@
-local Query = require"resty.mvc.query".single
 local Model = require"resty.mvc.model"
-local Field = require"resty.mvc.field"
+local Field = require"resty.mvc.modelfield"
 
 local M = {}
 
-M.User = Model:class{table_name='users', 
+M.User = Model:class{table_name='user', 
     fields = {
-        id = Field.IntegerField{min=1}, 
-        username = Field.CharField{maxlength=50},
-        avatar = Field.CharField{maxlength=100},  
-        openid = Field.CharField{maxlength=50}, 
-        password = Field.PasswordField{maxlength=50}, 
+        username = Field.CharField{maxlen=20, minlen=6, unique=true},
+        password = Field.CharField{maxlen=28, minlen=8},
+        age = Field.IntegerField{min=6, max=100, default=1},
+        score = Field.FloatField{min=0, max=150, default=0},
+        class = Field.CharField{maxlen=5, default='1', choices={{'1', 'class one'}, {'2', 'class two'}}},
+        passed = Field.BooleanField{default=false},
+        create_time = Field.DateTimeField{auto_now_add=true},
+        update_time = Field.DateTimeField{auto_now=true}
     }, 
 }
 

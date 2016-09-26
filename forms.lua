@@ -1,50 +1,67 @@
 local Form = require"resty.mvc.form"
-local BootsForm = require"resty.mvc.bootstrap_form"
-local Field = require"resty.mvc.field"
-local BootsField = require"resty.mvc.bootstrap_field"
-local validator = require"resty.mvc.validator"
+local Field = require"resty.mvc.formfield"
+local Widget = require"resty.mvc.widget"
+local Validator = require"resty.mvc.validator"
 local User = require"models".User
 
 local M = {}
--- LoginForm inherits Form directly, so both `Form:class{...}` and `Form{...}` can be used.
-M.LoginForm = Form{
+
+M.LoginForm = Form:class{
+
     fields = {
-        username = Field.CharField{maxlength=20, validators={validator.minlen(7)}, initial='name'},    
-        password = Field.PasswordField{maxlength=28, validators={validator.minlen(8)}, 
-            attrs={placeholder='enter your password'}},    
+        username = Field.CharField{
+            maxlen=20,  
+            minlen=6, 
+            initial='Name', 
+        },    
+        password = Field.PasswordField{
+            maxlen=28, 
+            minlen=8, 
+            widget=Widget.TextInput:instance{placeholder='enter your password', title='enter your password', foo='bar'},
+        },     
     }, 
+
     field_order = {'username', 'password'}, 
+
     clean_username = function(self, value)
         local user = User:get{username=value}
         if not user then
-            return nil, {'username doesnot exists.'}
+            return nil, {'username does not exists.'}
         end
         self.user = user --for reuses
         return value
     end, 
+
     clean_password = function(self, value)
         if self.user then
-            if self.user.password~=value then
+            if self.user.password ~= value then
                 return nil, {'wrong password.'}
             end
         end
         return value
     end, 
 }
--- UserForm inherits BootsForm which inherits Form via `new` method, which means 
--- getmetatable(BootsForm).__call is InstanceCaller rather than ClassCaller. So the 
--- fields can't be resolved with `BootsForm{...}`. We should use `BootsForm:class{...}`.
-M.UserForm = BootsForm:class{
+
+M.UserForm = Form:class{
+
     fields = {
-        username = BootsField.CharField{maxlength=20, validators={validator.minlen(6), }, initial='name'},    
-        password = BootsField.PasswordField{maxlength=28, validators={validator.minlen(9)}, 
-            attrs={placeholder='enter your password', class='form-control'}},    
+        username = Field.CharField{
+            maxlen=20,  
+            minlen=6, 
+            widget=Widget.TextInput:instance{placeholder='your name here, at least 6.'},
+        },    
+        password = Field.PasswordField{
+            maxlen=28, 
+            minlen=8, 
+        },    
     }, 
+
     field_order = {'username', 'password'}, 
+
     clean_username = function(self, value)
         local user = User:get{username=value}
         if user then
-            return nil, {'this username already exists.'}
+            return nil, {'username already exists.'}
         end
         return value
     end, 

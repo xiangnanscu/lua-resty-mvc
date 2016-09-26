@@ -134,11 +134,14 @@ local function serialize_basetype(v)
     end
 end
 local function _get_column_name(name, table_name)
-    if table_name then
-        return string_format("`%s`.`%s`", table_name, name)
-    else
-        return "`"..name.."`"
-    end
+    return name
+    -- if name:find(' ', 1) then
+    --     return name
+    -- elseif table_name then
+    --     return string_format("`%s`.`%s`", table_name, name)
+    -- else
+    --     return "`"..name.."`"
+    -- end
 end
 local function serialize_columns(columns, table_name)
     -- convert a table named `foo` with columns like {'age', 'name'} 
