@@ -94,14 +94,14 @@ local delta_to_sec = {
 }
 local timedelta = {is_timedelta=true}
 timedelta.__index = timedelta
-function  timedelta.new(cls, attrs)        
+function  timedelta.new(attrs)        
     local self = {}
     local t = 0
     for k, v in pairs(attrs) do
         t = t + (delta_to_sec[k] or 0) * v
     end
     self.total_seconds = t
-    return setmetatable(self, cls)
+    return setmetatable(self, timedelta)
 end
 function  timedelta.weeks(self)        
     return (math.modf(self.total_seconds/604800))
@@ -187,7 +187,7 @@ local function sub(a, b)
     if b.is_timedelta then
         return datetime.new(a.number - b.total_seconds)
     else
-        return timedelta:new{sec = a.number - b.number}
+        return timedelta.new{sec = a.number - b.number}
     end
 end
 local function add(a, b)
@@ -209,8 +209,8 @@ end
 local function test(...)
     local a = datetime.new(os.time())
     local b = datetime.new(os.date('*t')) 
-    local c = a + timedelta:new{day=3}
-    local d = b - timedelta:new{day=4}
+    local c = a + timedelta.new{day=3}
+    local d = b - timedelta.new{day=4}
     print('3 days after  '..tostring(a)..' is '..tostring(c))
     print('4 days before '..tostring(b)..' is '..tostring(d))
 
