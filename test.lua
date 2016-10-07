@@ -16,7 +16,7 @@ local Detail = Model:class{
     fields = {
         sex = Field.CharField{maxlen=1},
         age = Field.IntegerField{min=1},
-        moreinfo = Field.ForeignKey{Moreinfo}
+        info = Field.ForeignKey{Moreinfo}
     }
 }
 
@@ -117,26 +117,26 @@ Record:where{seller__detail__in={1, 2, 3}}
 Record:where{seller__detail__sex='w'}
 Record:where{seller__detail__age=20}
 Record:where{seller__detail__age__gt=20}
-Record:where{seller__detail__moreinfo=2}
-Record:where{seller__detail__moreinfo__lt=2}
-Record:where{seller__detail__moreinfo__in={1, 2}}
-Record:where{seller__detail__moreinfo__weight=55}
-Record:where{seller__detail__moreinfo__weight__gt=55}
-Record:where{seller__detail__moreinfo__weight__in={45, 55}}
+Record:where{seller__detail__info=2}
+Record:where{seller__detail__info__lt=2}
+Record:where{seller__detail__info__in={1, 2}}
+Record:where{seller__detail__info__weight=55}
+Record:where{seller__detail__info__weight__gt=55}
+Record:where{seller__detail__info__weight__in={45, 55}}
 
 Record:where{Q{buyer__detail__age__gt=20}/Q{seller__detail__age__gt=20}}
-Record:where{Q{buyer__detail__moreinfo__weight__gt=20}/Q{seller__detail__moreinfo__height__gt=20}}
-Record:where{Q{seller__detail__moreinfo__weight__gt=20}/Q{buyer__detail__moreinfo__height__gt=20}, buyer__detail__moreinfo__height__lt=120}:join{'buyer'}
-Record:where{Q{seller__detail__moreinfo__weight__gt=20}/Q{buyer__detail__moreinfo__height__gt=20}, buyer__detail__moreinfo__height__lt=120}:join{'buyer', 'seller', 'product'}
+Record:where{Q{buyer__detail__info__weight__gt=20}/Q{seller__detail__info__height__gt=20}}
+Record:where{Q{seller__detail__info__weight__gt=20}/Q{buyer__detail__info__height__gt=20}, buyer__detail__info__height__lt=120}:join{'buyer'}
+Record:where{Q{seller__detail__info__weight__gt=20}/Q{buyer__detail__info__height__gt=20}, buyer__detail__info__height__lt=120}:join{'buyer', 'seller', 'product'}
 ]]
 
 local statement_string2 = [[
 
-Record:where{buyer__detail__moreinfo__weight__gt=55}
+Record:where{buyer__detail__info__weight__gt=55}
 Record:where{Q{buyer__detail__age__gt=20}/Q{seller__detail__age__gt=20}}
-Record:where{Q{buyer__detail__moreinfo__weight__gt=20}/Q{seller__detail__moreinfo__height__gt=20}}
-Record:where{Q{seller__detail__moreinfo__weight__gt=20}/Q{buyer__detail__moreinfo__height__gt=20}, buyer__detail__moreinfo__height__lt=120}:join{'buyer'}
-Record:where{Q{seller__detail__moreinfo__weight__gt=20}/Q{buyer__detail__moreinfo__height__gt=20}, buyer__detail__moreinfo__height__lt=120}:join{'buyer', 'seller', 'product'}
+Record:where{Q{buyer__detail__info__weight__gt=20}/Q{seller__detail__info__height__gt=20}}
+Record:where{Q{seller__detail__info__weight__gt=20}/Q{buyer__detail__info__height__gt=20}, buyer__detail__info__height__lt=120}:join{'buyer'}
+Record:where{Q{seller__detail__info__weight__gt=20}/Q{buyer__detail__info__height__gt=20}, buyer__detail__info__height__lt=120}:join{'buyer', 'seller', 'product'}
 
 ]]
 
