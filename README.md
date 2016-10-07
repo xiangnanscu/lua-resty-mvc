@@ -15,7 +15,7 @@ the MVC is.
 |User|name|money|detail::Detail|||
 |Product|name|price||||
 |Record|buyer::User|seller::User|product::Product|count|time|
-::means a foreign key relation
+symbol `::` means a foreign key relation
 ##Api example
 if you're curious, please run this project and visit [http://localhost:8080/test](http://localhost:8080/test) to see
 what are the final SQL statement.
@@ -122,5 +122,6 @@ location = /register {
 ```
 # Todo
 1. column alias
+
 # Update log
 2016-10-07 Foreign key is supported
