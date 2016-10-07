@@ -9,6 +9,13 @@ local string_format = string.format
 local ngx_re_gsub = ngx.re.gsub
 local ngx_re_match = ngx.re.match
 
+local function map(tbl, func)
+    local res = {}
+    for i=1, #tbl do
+        res[i] = func(tbl[i])
+    end
+    return res
+end
 local function string_strip(value)
     return ngx_re_gsub(value, [[^\s*(.+)\s*$]], '$1', 'jo')
 end
@@ -157,7 +164,7 @@ local function serialize_attrs(attrs, table_name)
     local res = {}
     for k, v in pairs(attrs) do
         res[#res+1] = string_format('%s = %s', 
-            _get_column_name(k, table_name), serialize_basetype(v))
+            string_format('`%s`.`%s`', table_name, k), serialize_basetype(v))
     end
     return table_concat(res, ", ")
 end
@@ -173,6 +180,85 @@ local STRING_LIKE_RELATIONS = {
     endswith = '%s LIKE "%%%s"',
     iendswith = '%s COLLATE UTF8_GENERAL_CI LIKE "%%%s"',
 }
+
+local function serialize_andkwargs(andkwargs, table_name)
+    -- {age=23, id__in={1, 2, 3}, name='kat'} ->
+    -- `foo`.`age` = 23 AND `foo`.`id` IN (1, 2, 3) AND `foo`.`name` = "kat"
+    local results = {}
+    for key, value in pairs(andkwargs) do
+        -- try pattern `foo__bar` to split key
+        local field, operator, template
+        local pos = key:find('__', 1, true)
+        if pos then
+            field = key:sub(1, pos-1)
+            operator = key:sub(pos+2)
+        else
+            field = key
+            operator = 'exact'
+        end
+        template = RELATIONS[operator] or STRING_LIKE_RELATIONS[operator] or assert(nil, 'invalid operator:'..operator)
+        if type(value) == 'string' then
+            value = string_format("%q", value)
+            if STRING_LIKE_RELATIONS[operator] then
+                value = value:sub(2, -2)
+                -- value = value:sub(2, -2):gsub([[\\]], [[\\\]]) --search for backslash, seems rare
+            end
+        elseif type(value) == 'table' then 
+            -- turn table like {'a', 'b', 1} to string ('a', 'b', 1)
+            local res = {}
+            for i,v in ipairs(value) do
+                res[i] = serialize_basetype(v)
+            end
+            value = '('..table_concat(res, ", ")..')'
+        else -- number
+            value = tostring(value)
+        end
+        results[#results+1] = string_format(template, _get_column_name(field, table_name), value)
+    end
+    return table_concat(results, " AND ")
+end
+local function split(s, sep)
+    local i = 1
+    local over = false
+    local function _get()
+        if over then
+            return
+        end
+        local a, b = s:find(sep, i, true)
+        if a then
+            local e = s:sub(i, a-1)
+            i = b + 1
+            return e
+        else
+            e = s:sub(i)
+            over = true
+            return e
+        end
+    end
+    return _get
+end
+
+return {
+    dict = dict, 
+    list = list, 
+    table_has = table_has, 
+    to_html_attrs = to_html_attrs, 
+    string_strip = string_strip, 
+    is_empty_value = is_empty_value, 
+    dict_update = dict_update, 
+    list_extend = list_extend, 
+    reversed_metatables = reversed_metatables, 
+    walk_metatables = walk_metatables, 
+    sorted = sorted, 
+    curry = curry, 
+    serialize_basetype = serialize_basetype, 
+    serialize_andkwargs = serialize_andkwargs, 
+    serialize_attrs = serialize_attrs, 
+    serialize_columns = serialize_columns, 
+    map = map, 
+    split = split, 
+}
+
 -- mysql> select * from user;
 -- +----+---------------------+---------------------+--------+-------+-----+----------+-------+
 -- | id | update_time         | create_time         | passed | class | age | name     | score |
@@ -218,59 +304,3 @@ local STRING_LIKE_RELATIONS = {
 -- |  1 | 2016-09-25 18:51:48 | 2016-09-25 18:35:23 |      1 | 2     |  12 | kate'"\` |    60 |
 -- +----+---------------------+---------------------+--------+-------+-----+----------+-------+
 -- 1 row in set (0.00 sec)
-
-local function serialize_andkwargs(andkwargs, table_name)
-    -- {age=23, id__in={1, 2, 3}, name='kat'} ->
-    -- `foo`.`age` = 23 AND `foo`.`id` IN (1, 2, 3) AND `foo`.`name` = "kat"
-    local results = {}
-    for key, value in pairs(andkwargs) do
-        -- try pattern `foo__bar` to split key
-        local field, operator, template
-        local pos = key:find('__', 1, true)
-        if pos then
-            field = key:sub(1, pos-1)
-            operator = key:sub(pos+2)
-        else
-            field = key
-            operator = 'exact'
-        end
-        template = RELATIONS[operator] or STRING_LIKE_RELATIONS[operator] or assert(nil, 'invalid operator:'..operator)
-        if type(value) == 'string' then
-            value = string_format("%q", value)
-            if STRING_LIKE_RELATIONS[operator] then
-                value = value:sub(2, -2)
-                -- value = value:sub(2, -2):gsub([[\\]], [[\\\]]) --search for backslash, seems rare
-            end
-        elseif type(value) == 'table' then 
-            -- turn table like {'a', 'b', 1} to string ('a', 'b', 1)
-            local res = {}
-            for i,v in ipairs(value) do
-                res[i] = serialize_basetype(v)
-            end
-            value = '('..table_concat(res, ", ")..')'
-        else -- number
-            value = tostring(value)
-        end
-        results[#results+1] = string_format(template, _get_column_name(field, table_name), value)
-    end
-    return table_concat(results, " AND ")
-end
-return {
-    dict = dict, 
-    list = list, 
-    table_has = table_has, 
-    to_html_attrs = to_html_attrs, 
-    string_strip = string_strip, 
-    is_empty_value = is_empty_value, 
-    dict_update = dict_update, 
-    list_extend = list_extend, 
-    reversed_metatables = reversed_metatables, 
-    walk_metatables = walk_metatables, 
-    sorted = sorted, 
-    curry = curry, 
-    serialize_basetype = serialize_basetype, 
-    serialize_andkwargs = serialize_andkwargs, 
-    serialize_attrs = serialize_attrs, 
-    serialize_columns = serialize_columns, 
-
-}

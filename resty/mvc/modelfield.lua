@@ -1,6 +1,8 @@
+local query = require"resty.mvc.query".single
 local Validator = require"resty.mvc.validator"
 local FormField = require"resty.mvc.formfield"
 local Widget = require"resty.mvc.widget"
+local datetime = require"resty.mvc.datetime".datetime
 local utils = require"resty.mvc.utils"
 local rawget = rawget
 local setmetatable = setmetatable
@@ -47,7 +49,7 @@ function Field.instance(cls, attrs)
     self.help_text = self.help_text or ''
     self.choices = self.choices -- or {}
     self.validators = utils.list(self.default_validators, self.validators)
-    self.primary_key = self.primary_key or false
+    -- self.primary_key = self.primary_key or false
     self.blank = self.blank or false
     self.null = self.null or false
     self.db_index = self.db_index or false
@@ -73,7 +75,7 @@ function Field.check(self, kwargs)
     errors[#errors+1] = self:_check_field_name()
     errors[#errors+1] = self:_check_choices()
     errors[#errors+1] = self:_check_db_index()
-    errors[#errors+1] = self:_check_null_allowed_for_primary_keys()
+    --errors[#errors+1] = self:_check_null_allowed_for_primary_keys()
     return errors
 end
 function Field._check_field_name(self)
@@ -108,17 +110,17 @@ function Field._check_db_index(self)
         return "`db_index` must be nil, true or false"
     end
 end
-function Field._check_null_allowed_for_primary_keys(self)
-    if self.primary_key and self.null then
-        return 'Primary keys must not have null=true.'
-    end
-end
--- function Field.to_lua(self, value)
+-- function Field._check_null_allowed_for_primary_keys(self)
+--     if self.primary_key and self.null then
+--         return 'Primary keys must not have null=true.'
+--     end
+-- end
+-- function Field.client_to_lua(self, value)
 --     -- Converts the input value or value returned by lua-resty-mysql 
 --     -- into the expected lua data type.
 --     return value
 -- end
--- function Field.to_db(self, value)
+-- function Field.lua_to_db(self, value)
 --     -- get value prepared for database.
 --     return value
 -- end
@@ -170,7 +172,7 @@ function Field.validate(self, value, model_instance)
     end
 end
 function Field.clean(self, value, model_instance)
-    local value, err = self:to_lua(value)
+    local value, err = self:client_to_lua(value)
     if value == nil and err ~= nil then
         return nil, {err}
     end
@@ -268,7 +270,7 @@ function Field.formfield(self, kwargs)
         -- Fields with choices get special treatment.
         local include_blank = self.blank or not (self:has_default() or kwargs.initial~=nil)
         defaults.choices = self:get_choices(include_blank)
-        -- defaults.coerce = self.to_lua
+        -- defaults.coerce = self.client_to_lua
         if self.null then
             defaults.empty_value = nil
         end
@@ -320,14 +322,14 @@ function CharField.instance(cls, attrs)
     end
     return self
 end
-function CharField.to_lua(self, value)
+function CharField.client_to_lua(self, value)
     if type(value) == 'string' or value == nil then
         return value
     end
     return tostring(value)
 end
-function CharField.to_db(self, value)
-    return self:to_lua(value)
+function CharField.lua_to_db(self, value)
+    return self:client_to_lua(value)
 end
 function CharField.check(self, kwargs)
     local errors = Field.check(self, kwargs)
@@ -375,14 +377,14 @@ function TextField.instance(cls, attrs)
     end
     return self
 end
-function TextField.to_lua(self, value)
+function TextField.client_to_lua(self, value)
     if type(value) == 'string' or value == nil then
         return value
     end
     return tostring(value)
 end
-function TextField.to_db(self, value)
-    return self:to_lua(value)
+function TextField.lua_to_db(self, value)
+    return self:client_to_lua(value)
 end
 function TextField.get_internal_type(self)
     return "TextField"
@@ -444,7 +446,7 @@ end
 function DateField.get_internal_type(self)
     return "DateField"
 end
-function DateField.to_lua(self, value)
+function DateField.client_to_lua(self, value)
     if value == nil then
         return nil
     end
@@ -455,8 +457,8 @@ function DateField.to_lua(self, value)
     end
     return value
 end
-function DateField.to_db(self, value)
-    return self:to_lua(value)
+function DateField.lua_to_db(self, value)
+    return self:client_to_lua(value)
 end
 function DateField.formfield(self, kwargs)
     local defaults = {form_class=FormField.DateField}
@@ -475,6 +477,15 @@ local DateTimeField = DateField:new{
     description = "Date (with time)", 
 }
 utils.dict_update(DateTimeField, DateTimeCheckMixin)
+function DateTimeField.db_to_lua(self, value)
+    return datetime.new(value)
+end
+function DateTimeField.lua_to_db(self, value)
+    if type(value)~='string' then
+        value = value.string
+    end
+    return value
+end
 function DateTimeField._check_fix_default_value(self)
 
 end
@@ -510,7 +521,7 @@ end
 function TimeField.get_internal_type(self)
     return "TimeField"
 end
-function TimeField.to_lua(self, value)
+function TimeField.client_to_lua(self, value)
     if value == nil then
         return nil
     end
@@ -521,8 +532,9 @@ function TimeField.to_lua(self, value)
     end
     return value
 end
-function TimeField.to_db(self, value)
-    return self:to_lua(value)
+function TimeField.lua_to_db(self, value)
+    -- todo
+    return self:client_to_lua(value)
 end
 function TimeField.formfield(self, kwargs)
     local defaults = {form_class=FormField.TimeField}
@@ -566,7 +578,7 @@ function IntegerField.instance(cls, attrs)
     end
     return self
 end
-function IntegerField.to_lua(self, value)
+function IntegerField.client_to_lua(self, value)
     if value == nil then
         return nil
     end
@@ -576,7 +588,7 @@ function IntegerField.to_lua(self, value)
     end
     return value
 end
-function IntegerField.to_db(self, value)
+function IntegerField.lua_to_db(self, value)
     if value == nil then
         return nil
     end
@@ -621,7 +633,7 @@ function FloatField.instance(cls, attrs)
     end
     return self
 end
-function FloatField.to_lua(self, value)
+function FloatField.client_to_lua(self, value)
     if value == nil then
         return nil
     end
@@ -631,7 +643,7 @@ function FloatField.to_lua(self, value)
     end
     return value
 end
-function FloatField.to_db(self, value)
+function FloatField.lua_to_db(self, value)
     return tonumber(value)
 end
 function FloatField.get_internal_type(self)
@@ -646,7 +658,7 @@ end
 
 
 local AutoField = Field:new{
-    db_type = 'PRIMARYKEY', 
+    db_type = 'INT', 
     description = "Primary Key, from 0 to 4294967295.",
     empty_strings_allowed = false,
     default_error_messages = {
@@ -670,7 +682,7 @@ end
 function AutoField.get_internal_type(self)
     return "AutoField"
 end
-function AutoField.to_lua(self, value)
+function AutoField.client_to_lua(self, value)
     if value == nil then
         return nil
     end
@@ -680,7 +692,7 @@ function AutoField.to_lua(self, value)
     end
     return value
 end
-function AutoField.to_db(self, value)
+function AutoField.lua_to_db(self, value)
     -- e.g. 12.0, 12.01, '12.0', '12.01' will be 12
     if value == nil then
         return nil
@@ -717,14 +729,14 @@ local BOOLEAN_TABLE = {
     ['true'] = true, 
     ['false'] = false, 
 }
-function BooleanField.to_lua(self, value)
+function BooleanField.client_to_lua(self, value)
     value = BOOLEAN_TABLE[value]
     if value ~= nil then
         return value
     end
     return nil, self.error_messages.invalid
 end
-function BooleanField.to_db(self, value)
+function BooleanField.lua_to_db(self, value)
     value = BOOLEAN_TABLE[value]
     if not value then
         return 0
@@ -759,18 +771,37 @@ function BooleanField.formfield(self, kwargs)
     return Field.formfield(self, defaults)
 end
 
-
+local function __index(t, key)
+    local res, err = query(string_format('select * from `%s` where id=%s;', t.__ref.table_name, t.id))
+    if not res or res[1] == nil then
+        return nil
+    end
+    for k, v in pairs(res[1]) do
+        if rawget(t, k) == nil then
+            t[k] = v
+        end
+    end
+    t.__ref.row_class:instance(t)
+    return t[key]
+end
+local FK_meta = {__index = __index}
 local ForeignKey = Field:new{
-    db_type = 'FOREIGNKEY', 
-    on_delete=false, on_update=false}
+    db_type = 'INT', 
+    on_delete=nil, on_update=nil}
 function ForeignKey.get_internal_type(self)
     return "ForeignKey"
+end
+function ForeignKey.db_to_lua(self, value)
+    return setmetatable({id=value, __ref=self.reference}, FK_meta)
+end
+function ForeignKey.lua_to_db(self, value)
+    return value.id
 end
 function ForeignKey.instance(cls, attrs)
     local self = cls:new(attrs)
     self.reference = self.reference or self[1] or assert(nil, 'a model name must be provided for ForeignKey')
     local e = self.reference
-    assert(e.table_name and e.fields, 'It seems that you didnot provide a model')
+    assert(e.table_name and e.fields, 'It seems that you did not provide a model')
     self.validators = self.validators or {}
     return self
 end
@@ -786,8 +817,9 @@ return {
     DateTimeField = DateTimeField,
     TimeField = TimeField,
 
-    AutoField = AutoField, 
     BooleanField = BooleanField, 
+    
+    AutoField = AutoField, 
     ForeignKey = ForeignKey,
     -- FileField = FileField,
 }

@@ -4,15 +4,13 @@ local Widget = require"resty.mvc.widget"
 local Validator = require"resty.mvc.validator"
 local User = require"models".User
 
-local M = {}
 
-M.LoginForm = Form:class{
+local LoginForm = Form:class{
 
     fields = {
         username = Field.CharField{
             maxlen=20,  
             minlen=6, 
-            initial='Name', 
         },    
         password = Field.PasswordField{
             maxlen=28, 
@@ -42,12 +40,13 @@ M.LoginForm = Form:class{
     end, 
 }
 
-M.UserForm = Form:class{
+local UserForm = Form:class{
 
     fields = {
         username = Field.CharField{
             maxlen=20,  
             minlen=6, 
+            initial='abcdef', 
             widget=Widget.TextInput:instance{placeholder='your name here, at least 6.'},
         },    
         password = Field.PasswordField{
@@ -67,4 +66,7 @@ M.UserForm = Form:class{
     end, 
 }
 
-return M
+return {
+    UserForm = UserForm, 
+    LoginForm = LoginForm, 
+}

@@ -118,12 +118,17 @@ function Form.is_valid(self)
 end
 function Form._clean_fields(self)
     for i, name in ipairs(self.field_order) do
+        -- Note here we iterate `field_order` instead of `fields` 
+        -- because the order matters. In some situations we
+        -- need to ensure A field performs cleaning before B.
         local field = self.fields[name]
         local value;
         if field.disabled then
             value = self.initial[name] or field.initial
         else
-            value = field.widget:value_from_datadict(self.data, self.files, self:add_prefix(name))
+            local key = self:add_prefix(name)
+            value = self.data[key] or self.files[key]
+            -- value = field.widget:value_from_datadict(self.data, self.files, self:add_prefix(name))
         end
         local value, errors = field:clean(value)
         if errors then
