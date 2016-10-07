@@ -3,7 +3,7 @@
 With just a plain folder with several simple files, you can enjoy basic but most frequently used MVC features.
 
 # Quick start
-try to start from `nginx -p . -c nginx.conf`, and visit [http://localhost:8080/init](http://localhost:8080/init)
+Config your database in `lib/resty/mvc/query.lua` and try to start from `nginx -p . -c nginx.conf`, and visit [http://localhost:8080/init](http://localhost:8080/init)
 # Api taste
 Below is five models representing five database tables. Why so many tables?  Because I want to show you how powerful
 the MVC is.
