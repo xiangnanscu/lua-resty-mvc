@@ -8,11 +8,13 @@ local table_insert = table.insert
 local table_concat = table.concat
 local table_remove = table.remove
 
+local default_widget_class = 'form-control'
+
 local Widget = {multipart=false}
-function Widget.new(cls, init)
-    init = init or {}
+function Widget.new(cls, self)
+    self = self or {}
     cls.__index = cls
-    return setmetatable(init, cls)
+    return setmetatable(self, cls)
 end
 function Widget.instance(cls, attrs)
     local self = cls:new()
@@ -20,6 +22,9 @@ function Widget.instance(cls, attrs)
         self.attrs = utils.dict(attrs)
     else
         self.attrs = {}
+    end
+    if not self.attrs.class then
+        self.attrs.class = default_widget_class
     end
     self.is_instance = true
     return self

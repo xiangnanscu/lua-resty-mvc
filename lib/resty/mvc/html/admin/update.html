@@ -1,0 +1,19 @@
+{% layout = "admin/base.html" %}
+
+{-main-}
+
+{%  local meta = view.model.meta %} 
+<ol class="breadcrumb">
+  <li><a href="/admin">Home</a></li>
+  <li><a href="/admin/{{meta.app_name}}">{{meta.app_name}}</a></li>
+  <li><a href="/admin/{{meta.app_name}}/{{meta.url_model_name}}/list">{{meta.model_name}}</a></li>
+  <li class="active">update</li>
+</ol>
+
+<form role="form" method="post">
+  {*form:render()*}
+  <button type="submit" class="btn btn-default">update</button>
+</form>
+
+{-main-}
+

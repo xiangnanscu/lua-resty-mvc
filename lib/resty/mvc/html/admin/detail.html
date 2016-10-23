@@ -1,0 +1,28 @@
+{% layout = "admin/base.html" %}
+
+{-main-}
+
+{% local meta = view.model.meta %}
+<ol class="breadcrumb">
+  <li><a href="/admin">Home</a></li>
+  <li><a href="/admin/{{meta.app_name}}">{{meta.app_name}}</a></li>
+  <li><a href="/admin/{{meta.app_name}}/{{meta.url_model_name}}/list">{{meta.model_name}}</a></li>
+  <li class="active">{{object}}</li>
+</ol>
+
+<table class="table table-hover table-striped">
+{% for k, v in pairs(object) do %}
+  <tr>
+    <th>{{k}}</th>
+    {% local fk = object.__model.foreignkeys[k] %}
+    {% if fk then %}
+      <td><a href="/admin{{v:get_update_url()}}">{{v}}</a></td>
+    {% else %}
+      <td>{{v}}</td>
+    {% end %}
+  </tr>
+{% end %}
+</table>
+<a href="/admin{{object:get_update_url()}}" class="btn btn-default">update</a>
+
+{-main-}

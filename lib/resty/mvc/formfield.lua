@@ -1,3 +1,4 @@
+local query = require"resty.mvc.query".single
 local Validator = require"resty.mvc.validator"
 local Widget = require"resty.mvc.widget"
 local BoundField = require"resty.mvc.boundfield"
@@ -43,13 +44,13 @@ function Field.new(cls, self)
     return setmetatable(self, cls)
 end
 function Field.instance(cls, attrs)
-    -- widget stuff
+    -- used when defining a form
     local self = cls:new(attrs)
     local widget = self.widget 
     if not rawget(widget, 'is_instance') then
         widget = widget:instance()
     end
-    -- big different from Django: widget should be capable to refer to field
+    -- big different from Django: widget gets access to field
     -- currently mainly for easy override of `choices` attribute of `Select` and `RadioSelect`
     widget.field = self 
     -- Let the widget know whether it should display as required.
@@ -59,12 +60,19 @@ function Field.instance(cls, attrs)
     self.widget = widget
     -- walk parents
     local messages = {}
-    for parent in utils.reversed_metatables(self) do
-        utils.dict_update(messages, parent.default_error_messages)
+    for _, cls in ipairs(utils.reversed_inherited_chain(self)) do
+        utils.dict_update(messages, cls.default_error_messages)
     end
-    self.error_messages = utils.dict(messages, self.error_messages) 
+    self.error_messages = messages
     self.validators = utils.list(self.default_validators, self.validators)
     return self
+end
+function Field.copy(self)
+    -- used when make a form instance 
+    local field = self:new()
+    -- `widget` is a special attribute, mainly due to `choices` render logic
+    field.widget = self.widget:new{field=field}
+    return field
 end
 function Field.widget_attrs(self, widget)
     return {}
@@ -119,6 +127,8 @@ function Field.get_bound_field(self, form, field_name)
     return BoundField:instance(form, self, field_name)
 end
 function Field.prepare_value(self, value)
+    -- hooks for changing boundfield value, used in widget:render method
+    -- some special fields like ForeignKey and DateTimeField need this.
     return value
 end
 
@@ -324,6 +334,8 @@ function ChoiceField.valid_value(self, value)
                 end
             end
         else
+            -- todo this is a simple version of checking.
+            -- because TypedChoiceField is not used.
             if value == k or value == tostring(k) then
                 return true
             end
@@ -333,7 +345,7 @@ function ChoiceField.valid_value(self, value)
 end
 
 -- file api is based on lua-resty-reqargs
-local FileField = Field:new{}
+local FileField = Field:new{upload_to=nil}
 function FileField.instance(cls, attrs)
     local self = Field.instance(cls, attrs)
     self.upload_to = self.upload_to or 'static/files/' -- assert(nil, 'upload_to is required for FileField')
@@ -358,22 +370,62 @@ function FileField.clean(self, value)
     return value
 end
 
-
-local ForeignKey = IntegerField:new{}
+local ForeignKey = ChoiceField:new{
+    limit_choices_to = nil,
+    empty_label = nil,
+}
 function ForeignKey.instance(cls, attrs)
-    local self = IntegerField.instance(cls, attrs)
-    self.reference = self.reference or self[1] or assert(nil, 'a model name must be provided for ForeignKey')
+    local self = Field.instance(cls, attrs) -- not ChoiceField.instance because no need to check `choices`
+    if self.required and self.initial ~= nil then
+        self.empty_label = nil
+    else
+        self.empty_label = self.empty_label or "---------"
+    end
+    self.reference = self.reference or self[1] or assert(nil, 'a model must be provided for ForeignKey')
     local model = self.reference
-    assert(model.table_name and model.fields, 'It seems that you didnot provide a model')
-    -- can't do this in the init_worker_by_lua*, to do
-    -- local choices = {}
-    -- for i, e in ipairs(model:all()) do
-    --     choices[#choices+1] = {e.id, e.id}
-    -- end
-    -- self.choices = choices
+    assert(model.meta.table_name and model.fields, 'It seems that you did not provide a model')
     return self
 end
-
+function ForeignKey.client_to_lua(self, value)
+    if utils.is_empty_value(value) then
+        return 
+    end
+    -- currently search by id
+    local ins, err = self.reference:get{id=tonumber(value)}
+    if ins == nil then
+        return nil, string_format(self.error_messages.invalid_choice, value)
+    end
+    return ins
+end
+function ForeignKey.validate(self, value)
+    -- because we already perform choice checks in `client_to_lua`, so here
+    -- we need to overwrite `ChoiceField.validate`
+    return Field.validate(self, value)
+end
+function ForeignKey.copy(self)
+    local field = ChoiceField.copy(self)
+    local fk_model = self.reference
+    local choices
+    if self.empty_label ~= nil then
+        choices = {{'', self.empty_label}}
+    else
+        choices = {}
+    end
+    for i, e in ipairs(fk_model:where(self.limit_choices_to):exec()) do
+        choices[#choices + 1] = {e.id, self:label_from_instance(e)}
+    end
+    field.choices = choices
+    return field
+end
+function ForeignKey.prepare_value(self, value)
+    if type(value) == 'table' then
+        return value.id
+    end
+    return value
+end
+function ForeignKey.label_from_instance(self, obj)
+    return obj.__model.render(obj)
+end
 
 local MultipleChoiceField = ChoiceField:new{
     widget = Widget.SelectMultiple, 
@@ -421,7 +473,7 @@ return{
     BooleanField = BooleanField, 
     HiddenField = HiddenField, 
     FileField = FileField, 
-    
+
+    ForeignKey = ForeignKey, 
     -- MultipleChoiceField = MultipleChoiceField, -- todo
-    -- ForeignKey = ForeignKey, -- to do
 }

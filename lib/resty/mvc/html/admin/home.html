@@ -1,0 +1,43 @@
+{% layout = "admin/base.html" %}
+
+{-main-}
+
+<ol class="breadcrumb">
+{% if view.model then %}
+  <li><a href="/admin">Home</a></li>
+  <li class="active">{{view.model.meta.app_name}}</li>
+{% else %}
+  <li class="active">Home</li>
+{% end %}
+</ol>
+
+{% for app_name, models in pairs(apps) do %}  
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <h3 class="panel-title">
+      <a href="/admin/{{app_name}}">
+        {{app_name}}
+      </a>
+    </h3>
+  </div>
+  <div class="panel-body">
+    <table class="table table-hover">
+      <tbody>
+      {% for name, model in pairs(models) do%}
+        <tr>
+          <td>
+            <a href="/admin/{{app_name}}/{{model.meta.url_model_name}}/list">{{name}}</a>
+          </td>
+          <td>
+            <a href="/admin/{{app_name}}/{{model.meta.url_model_name}}/create" class="btn btn-default">create</a>
+            <a href="/admin/{{app_name}}/{{model.meta.url_model_name}}/list" class="btn btn-default">list</a>
+          </td>
+        </tr>
+      {% end %}
+      <tbody>
+    </table>
+  </div>
+</div>
+{% end %} 
+
+{-main-}

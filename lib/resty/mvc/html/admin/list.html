@@ -1,0 +1,47 @@
+{% layout = "admin/base.html" %}
+
+{-main-}
+
+{%  local meta = view.model.meta %} 
+<ol class="breadcrumb">
+  <li><a href="/admin">Home</a></li>
+  <li><a href="/admin/{{meta.app_name}}">{{meta.app_name}}</a></li>
+  <li class="active">{{meta.model_name}}</li>
+</ol>
+
+<table class="table table-hover table-striped">
+  
+  {% if object_list[1] then %}
+    <thead>
+      <tr>
+        {%for k, v in pairs(object_list[1]) do%}
+          <th>{{k}}</th>
+        {% end%}
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i, object in ipairs(object_list) do%}
+      <tr>
+        {%for k, v in pairs(object) do%}
+          {% local fk = object.__model.foreignkeys[k] %}
+          {% if fk then %}
+            <td><a href="/admin{{v:get_update_url()}}">{{v}}</a></td>
+          {% else %}
+            <td>{{v}}</td>
+          {% end %}
+        {% end %}
+        <td>
+          <a href="/admin{{object:get_url()}}" class="btn btn-default">detail</a>
+          <a href="/admin{{object:get_update_url()}}" class="btn btn-default">update</a>
+          <a href="/admin{{object:get_delete_url()}}" class="btn btn-default">delete</a>
+        </td>
+      </tr>
+      {% end %}
+    </tbody>
+  {% else %}
+    <p>No records</p>
+  {% end %}
+</table>
+<a href="/admin/{{meta.app_name}}/{{meta.url_model_name}}/create" class="btn btn-default">create</a>
+{-main-}

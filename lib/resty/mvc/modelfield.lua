@@ -44,12 +44,16 @@ function Field.new(cls, self)
     return setmetatable(self, cls)
 end
 function Field.instance(cls, attrs)
-    -- widget stuff
     local self = cls:new(attrs)
     self.help_text = self.help_text or ''
-    self.choices = self.choices -- or {}
-    self.validators = utils.list(self.default_validators, self.validators)
+    -- todo
+    -- self.choices = self.choices or {} 
+    -- self.default = self.default or NOT_PROVIDED
     -- self.primary_key = self.primary_key or false
+    -- if self.serialize == nil then
+    --     self.serialize = true
+    -- end
+    self.validators = utils.list(self.default_validators, self.validators)
     self.blank = self.blank or false
     self.null = self.null or false
     self.db_index = self.db_index or false
@@ -57,17 +61,12 @@ function Field.instance(cls, attrs)
     if self.editable == nil then
         self.editable = true
     end
-    if self.serialize == nil then
-        self.serialize = true
-    end
     self.unique = self.unique or false
-    self.is_relation = self.remote_field ~= nil
-    self.default = self.default 
     local messages = {}
-    for parent in utils.reversed_metatables(self) do
-        utils.dict_update(messages, parent.default_error_messages)
+    for _, cls in ipairs(utils.reversed_inherited_chain(self)) do
+        utils.dict_update(messages, cls.default_error_messages)
     end
-    self.error_messages = utils.dict_update(messages, self.error_messages)
+    self.error_messages = messages
     return self
 end
 function Field.check(self, kwargs)
@@ -115,11 +114,9 @@ end
 --         return 'Primary keys must not have null=true.'
 --     end
 -- end
--- function Field.client_to_lua(self, value)
---     -- Converts the input value or value returned by lua-resty-mysql 
---     -- into the expected lua data type.
---     return value
--- end
+function Field.client_to_lua(self, value)
+    return value
+end
 -- function Field.lua_to_db(self, value)
 --     -- get value prepared for database.
 --     return value
@@ -251,8 +248,7 @@ local valid_typed_kwargs = {
     label = true,
     initial = true,
     help_text = true,
-    error_messages = true,
-    show_hidden_initial = true,}
+    error_messages = true}
 function Field.formfield(self, kwargs)
     local form_class = kwargs.form_class 
     local choices_form_class = kwargs.choices_form_class
@@ -261,7 +257,6 @@ function Field.formfield(self, kwargs)
     if self:has_default() then
         if type(self.default) == 'function' then
             defaults.initial = self.default
-            defaults.show_hidden_initial = true
         else
             defaults.initial = self:get_default()
         end
@@ -280,8 +275,8 @@ function Field.formfield(self, kwargs)
             -- form_class = FormField.TypedChoiceField
             form_class = FormField.ChoiceField
         end
-        -- Many of the subclass-specific formfield arguments (min_value,
-        -- max_value) don't apply for choice fields, so be sure to only pass
+        -- Many of the subclass-specific formfield arguments (min,
+        -- max) don't apply for choice fields, so be sure to only pass
         -- the values that TypedChoiceField will understand.
         for k, v in pairs(kwargs) do
             if not valid_typed_kwargs[k] then
@@ -296,7 +291,7 @@ function Field.formfield(self, kwargs)
     return form_class:instance(defaults)
 end
 function Field.flatchoices(self)
-    -- """Flattened version of choices tuple."""
+    -- Flattened version of choices tuple
     local flat = {}
     for i, e in ipairs(self.choices) do
         local choice, value = e[1], e[2]
@@ -478,10 +473,13 @@ local DateTimeField = DateField:new{
 }
 utils.dict_update(DateTimeField, DateTimeCheckMixin)
 function DateTimeField.db_to_lua(self, value)
-    return datetime.new(value)
+    --loger('DateTimeField.db_to_lua:', type(value), value)
+    local res = datetime.new(value)
+    --loger('DateTimeField.db_to_lua res:', res.number)
+    return res
 end
 function DateTimeField.lua_to_db(self, value)
-    if type(value)~='string' then
+    if type(value) == 'table' then
         value = value.string
     end
     return value
@@ -771,20 +769,31 @@ function BooleanField.formfield(self, kwargs)
     return Field.formfield(self, defaults)
 end
 
-local function __index(t, key)
-    local res, err = query(string_format('select * from `%s` where id=%s;', t.__ref.table_name, t.id))
-    if not res or res[1] == nil then
-        return nil
-    end
-    for k, v in pairs(res[1]) do
-        if rawget(t, k) == nil then
+local function fk_index(t, key)
+    local fk_model = t.__ref
+    if fk_model.fields[key] then
+        local res, err = query(string_format(
+            'select * from `%s` where id = %s;', t.__ref.meta.table_name, t.id))
+        if not res or res[1] == nil then
+            return nil
+        end
+        for k, v in pairs(res[1]) do
             t[k] = v
         end
+        fk_model.row_class:instance(t)
+        return t[key]
     end
-    t.__ref.row_class:instance(t)
-    return t[key]
+    return fk_model.row_class[key]
 end
-local FK_meta = {__index = __index}
+local function fk_tostring(t)
+    return t.__ref.render(t)
+end
+local ForeignObject = {__index = fk_index, __tostring = fk_tostring}
+function ForeignObject.new(attrs)
+    return setmetatable(attrs, ForeignObject)
+end
+
+
 local ForeignKey = Field:new{
     db_type = 'INT', 
     on_delete=nil, on_update=nil}
@@ -792,18 +801,28 @@ function ForeignKey.get_internal_type(self)
     return "ForeignKey"
 end
 function ForeignKey.db_to_lua(self, value)
-    return setmetatable({id=value, __ref=self.reference}, FK_meta)
+    return ForeignObject.new{id=value, __ref=self.reference}
 end
 function ForeignKey.lua_to_db(self, value)
-    return value.id
+    -- you can pass either an integer or a table (row object) as value
+    if type(value) == 'table' then
+        return value.id
+    end
+    -- if not table, it's a number
+    return value
 end
 function ForeignKey.instance(cls, attrs)
     local self = cls:new(attrs)
-    self.reference = self.reference or self[1] or assert(nil, 'a model name must be provided for ForeignKey')
+    self.reference = self.reference or self[1] or assert(nil, 'a model must be provided for ForeignKey')
     local e = self.reference
-    assert(e.table_name and e.fields, 'It seems that you did not provide a model')
+    assert(e.fields, 'It seems that you did not provide a model')
     self.validators = self.validators or {}
     return self
+end
+function ForeignKey.formfield(self, kwargs)
+    local defaults = {form_class = FormField.ForeignKey, reference=self.reference}
+    utils.dict_update(defaults, kwargs)
+    return Field.formfield(self, defaults)
 end
 
 
@@ -821,5 +840,5 @@ return {
     
     AutoField = AutoField, 
     ForeignKey = ForeignKey,
-    -- FileField = FileField,
+    -- FileField = FileField, -- todo
 }

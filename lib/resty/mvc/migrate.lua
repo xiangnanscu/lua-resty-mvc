@@ -3,6 +3,9 @@
 -- https://dev.mysql.com/doc/refman/5.6/en/create-index.html
 -- http://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html
 local query = require"resty.mvc.query".single
+local utils = require"resty.mvc.utils"
+local apps = require"resty.mvc.apps"
+
 
 local function make_file(fn, content)
   local f, e = io.open(fn, "w+")
@@ -57,7 +60,7 @@ local function make_table_defination(model)
             end
             table.insert(field_options.foreign_key, string.format(
                 'FOREIGN KEY (%s) REFERENCES %s(id) ON DELETE %s ON UPDATE %s', 
-                name, field.reference.table_name, field.on_delete or 'CASCADE', field.on_update or 'CASCADE'))
+                name, field.reference.meta.table_name, field.on_delete or 'CASCADE', field.on_update or 'CASCADE'))
             -- todo allow null
             field_string = string.format('%s INT UNSIGNED NOT NULL', name)
         elseif field_type == 'AutoField' then
@@ -111,7 +114,7 @@ local function make_table_defination(model)
     local table_options = table.concat(table_options, ' ')
 
     local table_create_defination = string.format([[CREATE TABLE %s(%s%s)%s;]], 
-        model.table_name, fields, field_options, table_options)
+        model.meta.table_name, fields, field_options, table_options)
 
     return table_create_defination
 end
@@ -124,8 +127,8 @@ local function get_table_defination(table_name)
     return res[1]["Create Table"]
 end
 
-local function write_model_to_db(model, drop_existed_table)
-    local res, err = query(string.format("SHOW TABLES LIKE '%s'", model.table_name))
+local function save_model_to_db(model, drop_existed_table)
+    local res, err = query(string.format("SHOW TABLES LIKE '%s'", model.meta.table_name))
     if not res then
         assert(nil, err)
     end
@@ -133,7 +136,7 @@ local function write_model_to_db(model, drop_existed_table)
         return
     end
     local table_create_defination = make_table_defination(model)
-    local res, err = query('DROP TABLE IF EXISTS '..model.table_name)
+    local res, err = query('DROP TABLE IF EXISTS '..model.meta.table_name)
     if not res then
         assert(nil, err)
     end
@@ -141,36 +144,20 @@ local function write_model_to_db(model, drop_existed_table)
     if not res then
         assert(nil, err)
     end
-    return get_table_defination(model.table_name)
+    return get_table_defination(model.meta.table_name)
 end
-local function has_values(t, e)
-    for k, v in pairs(t) do
-        if v == e then
-            return true
-        end
-    end
-    return false
-end
-
 local function get_models()
-    -- default function to get models list
-    local res = {}
-    for i, name in ipairs(settings.APP) do
-        local models = require("app."..name..".models")
-        for name, model in pairs(models) do
-            res[#res+1] = model
-        end
-    end
-    return res
+    return apps.get_models()
 end
 
-local function migrate_models(models, drop_existed_table)
+local function save_models_to_db(models, drop_existed_table)
     local res = {}
-    -- name: User, model: User
-    for i, model in ipairs(models) do
+    -- sort the models to an array for table creation in database
+    for _, model in ipairs(models) do
         local insert_index = nil
         for i, e in ipairs(res) do
-            if has_values(e.foreignkeys, model) then
+            if utils.dict_has(e.foreignkeys, model) then
+                -- table being foreign key referenced should be created first
                 insert_index = i
                 break
             end
@@ -180,7 +167,7 @@ local function migrate_models(models, drop_existed_table)
 
     if drop_existed_table then    
         for i = #res, 1, -1 do
-            local r, err = query('DROP TABLE IF EXISTS '..res[i].table_name)
+            local r, err = query('DROP TABLE IF EXISTS '..res[i].meta.table_name)
             if not r then
                 assert(nil, err)
             end
@@ -189,23 +176,25 @@ local function migrate_models(models, drop_existed_table)
 
     local defs = {}
     for i, model in ipairs(res) do
-        defs[#defs+1] = write_model_to_db(model, drop_existed_table)
+        defs[#defs+1] = save_model_to_db(model, drop_existed_table)
     end
     return defs
 end
 
-local function main(get_models_func, drop_existed_table)
-    local models
-    get_models_func = get_models_func or get_models
-    if type(get_models_func) == 'function' then
-        models = get_models_func()
-    elseif type(get_models_func) == 'table' then
-        models = get_models_func
-    else
+local function main(models, drop_existed_table)
+    models = models or get_models
+    if type(models) == 'function' then
+        models = models()
+    elseif type(models) ~= 'table' then
         assert(nil, 'invalid argument, should be either a function or table.')
     end
-    return migrate_models(models, drop_existed_table)
+    return save_models_to_db(models, drop_existed_table)
 end
 
 
-return main
+return {
+    main = main,
+    save_model_to_db = save_model_to_db,
+    save_models_to_db = save_models_to_db,
+}
+    

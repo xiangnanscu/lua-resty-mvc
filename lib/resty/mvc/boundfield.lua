@@ -53,23 +53,12 @@ function BoundField.as_widget(self, widget, attrs)
     end
     return widget:render(self.html_name, self:value(), attrs)
 end
-function BoundField.as_text(self, attrs)
-    return self:as_widget(Widget.TextInput(), attrs)
-end
-function BoundField.as_textarea(self, attrs)
-    return self:as_widget(Widget.Textarea(), attrs)
-end
-function BoundField.as_hidden(self, attrs)
-    return self:as_widget(self.field.hidden_widget().TextInput(), attrs)
-end
 function BoundField.data(self)
     return self.field.widget:value_from_datadict(self.form.data, self.form.files, self.html_name)
 end
 function BoundField.value(self)
-    -- """
     -- Returns the value for this BoundField, using the initial value if
     -- the form is not bound or the data otherwise.
-    -- """
     local data;
     if not self.form.is_bound then
         data = self.form.initial[self.name] or self.field.initial
@@ -86,7 +75,8 @@ function BoundField.value(self)
             self:data(), self.form.initial[self.name] or self.field.initial
         )
     end
-    return self.field:prepare_value(data)
+    -- return data
+    return self.field:prepare_value(data) 
 end
 function BoundField.label_tag(self, contents, attrs, label_suffix)
     -- """
@@ -153,6 +143,7 @@ function BoundField.css_classes(self, extra_classes)
     if self.field.required and self.form.required_css_class then
         extra_classes[#extra_classes+1] = self.form.required_css_class
     end
+    extra_classes[#extra_classes+1] = self.form.field_html_class
     return table_concat(extra_classes, ' ') 
 end
 function BoundField.is_hidden(self)
@@ -180,6 +171,15 @@ function BoundField.id_for_label(self)
     local widget = self.field.widget
     local id = widget.attrs.id or self.auto_id()
     return widget:id_for_label(id)
+end
+function BoundField.as_text(self, attrs)
+    return self:as_widget(Widget.TextInput(), attrs)
+end
+function BoundField.as_textarea(self, attrs)
+    return self:as_widget(Widget.Textarea(), attrs)
+end
+function BoundField.as_hidden(self, attrs)
+    return self:as_widget(self.field.hidden_widget().TextInput(), attrs)
 end
 
 return BoundField

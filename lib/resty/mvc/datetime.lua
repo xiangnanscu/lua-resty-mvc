@@ -1,6 +1,29 @@
-local ffi = require("ffi")
+local gmtime, localtime, mktime, datetimematch
 
-ffi.cdef[[
+if ngx then
+    function datetimematch(value)
+        return ngx.re.match(value,[[^(\d\d\d\d)-(\d\d?)-(\d\d?) (\d\d?):(\d\d?):(\d\d?)$]],'jo')
+    end
+else
+    function datetimematch(value)
+        return {value:match("^(%d%d%d%d)%-(%d%d?)%-(%d%d?) (%d%d?):(%d%d?):(%d%d?)$")}
+    end
+end
+
+local is_windows = package.config:sub(1,1) == '\\'
+if is_windows then
+    function gmtime(sec)
+        return os.date('!*t', sec)
+    end
+    function localtime(sec)
+        return os.date('*t', sec)
+    end
+    function mktime(t)
+        return os.time(t)
+    end
+else
+    local ffi = require("ffi")
+    ffi.cdef[[
 typedef long  time_t;
 typedef struct tm {
   int sec;        /* secs. [0-60] (1 leap sec) */
@@ -17,74 +40,55 @@ typedef struct tm {
 } tm;
 struct tm* gmtime_r   (const time_t*, struct tm*);
 struct tm* localtime_r(const time_t*, struct tm*);
-char*      asctime_r  (const struct tm*, char*);
 time_t     mktime     (struct tm*);
 ]]
+    local TimeStructP = ffi.typeof("struct tm[1]")
+    local TimeStruct = ffi.typeof("struct tm")
+    local TimeP = ffi.typeof("time_t[1]")
+    local Buf = ffi.typeof("uint8_t[?]")
+    function gmtime(sec)
+        local c = ffi.C.gmtime_r(TimeP(sec), TimeStruct())
+        return {
+            year  = c.year+1900, 
+            month = c.month+1, 
+            day   = c.day, 
+            hour  = c.hour,
+            min   = c.min,
+            sec   = c.sec}
+    end
+    function localtime(sec)
+        local c = ffi.C.localtime_r(TimeP(sec), TimeStruct())
+        return {
+            year  = c.year+1900, 
+            month = c.month+1, 
+            day   = c.day, 
+            hour  = c.hour,
+            min   = c.min,
+            sec   = c.sec}
+    end
+    function mktime(t)
+        local r = ffi.C.mktime(TimeStruct(
+            t.sec or 0, 
+            t.min or 0, 
+            t.hour or 0,
+            t.day, 
+            t.month - 1, 
+            t.year - 1900))
+        -- r is cdata, need to be converted to lua number
+        return tonumber(r)
+    end
+end
 
-local TimeStructP = ffi.typeof("struct tm[1]")
-local TimeStruct = ffi.typeof("struct tm")
-local TimeP = ffi.typeof("time_t[1]")
-local Buf = ffi.typeof("uint8_t[?]")
-
-local function gmtime(sec)
-    local c = ffi.C.gmtime_r(TimeP(sec), TimeStruct())
-    return {
-        year  = c.year+1900, 
-        month = c.month+1, 
-        day   = c.day, 
-        hour  = c.hour,
-        min   = c.min,
-        sec   = c.sec}
-end
-local function localtime(sec)
-    local c = ffi.C.localtime_r(TimeP(sec), TimeStruct())
-    return {
-        year  = c.year+1900, 
-        month = c.month+1, 
-        day   = c.day, 
-        hour  = c.hour,
-        min   = c.min,
-        sec   = c.sec}
-end
-local function mktime(t)
-    local r = ffi.C.mktime(TimeStruct(
-        t.sec or 0, 
-        t.min or 0, 
-        t.hour or 0,
-        t.day, 
-        t.month - 1, 
-        t.year - 1900))
-    -- r is cdata, need to convert to lua number
-    return tonumber(r)
-end
-local function asctime(t)
-    local buf = Buf(26)
-    ffi.C.asctime_r(TimeStruct(
-        t.sec or 0, 
-        t.min or 0, 
-        t.hour or 0,
-        t.day, 
-        t.month - 1, 
-        t.year - 1900), buf)
-    return ffi.string(buf)
-end
 local function strfmt(t)
   return string.format('%04d-%02d-%02d %02d:%02d:%02d', 
       t.year,  t.month,  t.day, 
       t.hour or 0,  t.min or 0,  t.sec or 0)
 end
-
-local datetimematch
-if ngx~=nil then
-    function datetimematch(value)
-        return ngx.re.match(value,[[^(\d\d\d\d)-(\d\d?)-(\d\d?) (\d\d?):(\d\d?):(\d\d?)$]],'jo')
-    end
-else
-    function datetimematch(value)
-        return {value:match("^(%d%d%d%d)%-(%d%d?)%-(%d%d?) (%d%d?):(%d%d?):(%d%d?)$")}
-    end
+local function logt(t)
+    print(t.year,  t.month,  t.day, t.hour,  t.min,  t.sec)
 end
 
+-- timedelta object
 local delta_to_sec = {
   sec  = 1, 
   min  = 60, 
@@ -116,7 +120,7 @@ function  timedelta.mins(self)
     return (math.modf(self.total_seconds/60))
 end
 
-
+-- datetime object
 local  datetime = {}
 local function index(t, k)
     if k=='string' then 
@@ -162,10 +166,10 @@ local function index(t, k)
                 min  = tonumber(m[5]),
                 sec  = tonumber(m[6]),
             }
-            t.number = mktime(t.table)
+            t.number = mktime(t.table) or 0 -- in case of overflow
             return t.number
         elseif rawget(t,'table') then
-            t.number= mktime(t.table)
+            t.number= mktime(t.table) or 0 
             t.string = strfmt(t.table)
             return t.number
         end
@@ -201,36 +205,45 @@ datetime.__eq=eq
 datetime.__sub=sub 
 datetime.__add=add
 datetime.__tostring=function(t) return t.string end
-function  datetime.new(arg)        
+
+function datetime.new(arg)    
     return setmetatable({[type(arg)]=arg}, datetime)
 end
 
 
-local function test(...)
-    local a = datetime.new(os.time())
-    local b = datetime.new(os.date('*t')) 
-    local c = a + timedelta.new{day=3}
-    local d = b - timedelta.new{day=4}
-    print('3 days after  '..tostring(a)..' is '..tostring(c))
-    print('4 days before '..tostring(b)..' is '..tostring(d))
-
-    local n= 0
-    local s= '1970-01-01 00:00:00'
-    local t= {year=1970,month=1,day=1}
-    for i,v in ipairs({n,s,t}) do
-       local r = datetime.new(v)
-       print(r, r.number)
-    end
-    print(datetime.new('1969-1-01 0:02:00')>datetime.new(s))
-    print(datetime.new('1970-1-1 3:2:0')>datetime.new(s))
+local function test()
+    local now_table = os.date('*t')
+    local now_number = os.time(now_table)
+    local now_string = strfmt(now_table)
+    print('current localtime is', now_string, 'correspondent timestamp is', now_number)
+    -- create a datetime object in three ways:
+    local dtt = datetime.new(now_table) 
+    local dtn = datetime.new(now_number)
+    local dts = datetime.new(now_string)
+    assert(dtt==dtn and dtn==dts, 'these three datetime object should be equal')
+    local diff_days = 2
+    local diff_hours = 1
+    -- seconds = 2*24*3600 + 3600 = 176400
+    local diff = timedelta.new{day=diff_days, hour=diff_hours}
+    print(string.format('%s days and %s hour after   %s is %s(by table)', diff_days, diff_hours, dtt, dtt+diff))
+    print(string.format('%s days and %s hour after   %s is %s(by number)', diff_days, diff_hours, dtn, dtn+diff))
+    print(string.format('%s days and %s hour after   %s is %s(by string)', diff_days, diff_hours, dts, dts+diff))
+    print(string.format('%s days and %s hour before  %s is %s(by table)', diff_days, diff_hours, dtt, dtt-diff))
+    print(string.format('%s days and %s hour before  %s is %s(by number)', diff_days, diff_hours, dtn, dtn-diff))
+    print(string.format('%s days and %s hour before  %s is %s(by string)', diff_days, diff_hours, dts, dts-diff))
+    local dto = dtt + timedelta.new{hour=1, sec=1}
+    print(string.format('%s is later   than %s by %s seconds', dto, dtt, (dto - dtt).total_seconds))
+    local dto = dtt - timedelta.new{hour=1, sec=2}
+    print(string.format('%s is earlier than %s by %s seconds', dto, dtt, (dtt - dto).total_seconds))
 end
---test()
+
 return {
     datetime=datetime,
     timedelta=timedelta,
     gmtime=gmtime,
     localtime=localtime,
     mktime=mktime,
+    test=test,
 }
 
 

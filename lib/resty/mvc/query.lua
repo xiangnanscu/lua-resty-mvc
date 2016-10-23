@@ -1,14 +1,34 @@
 local client = require"resty.mysql"
-
+local settings = require"resty.mvc.settings"
 local string_format = string.format
-local CONNECT_TABLE = {host = "127.0.0.1", port = 3306, 
-        database = "test", user = 'root', password = '', }
-local CONNECT_TIMEOUT = 1000
-local IDLE_TIMEOUT = 10000
-local POOL_SIZE = 50
+
+local DATABASE = settings.DATABASE
+local CONNECT_TABLE, CONNECT_TIMEOUT, IDLE_TIMEOUT, POOL_SIZE
+
+if DATABASE then
+    CONNECT_TABLE = DATABASE.connect_table or { 
+        host     = "127.0.0.1", 
+        port     = 3306, 
+        database = "test", 
+        user     = 'root', 
+        password = '', }
+    CONNECT_TIMEOUT = DATABASE.connect_timeout or 1000
+    IDLE_TIMEOUT = DATABASE.idle_timeout or 10000
+    POOL_SIZE = DATABASE.pool_size or 50
+else
+    CONNECT_TABLE = { 
+        host     = "127.0.0.1", 
+        port     = 3306, 
+        database = "test", 
+        user     = 'root', 
+        password = '', }
+    CONNECT_TIMEOUT = 1000
+    IDLE_TIMEOUT = 10000
+    POOL_SIZE = 50
+end
 
 local function single(statement, rows)
-    -- loger(statement)
+    --loger(statement)
     local db, err = client:new()
     if not db then
         return nil, err

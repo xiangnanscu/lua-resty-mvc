@@ -9,8 +9,7 @@ local type = type
 local pairs = pairs
 local string_format = string.format
 local table_concat = table.concat
-local ngx_log = ngx.log
-local ngx_ERR = ngx.ERR
+
 --todo add `:count()` method
 
 -- >>> x=u.objects.filter(sfzh__startswith='5').filter(Q(id__gt=5)).filter(Q(id__lt=30))
@@ -60,24 +59,20 @@ local chain_methods = {
     "select", "where", "group", "having", "order", "page", 'join', 
     "create", "update", "delete", 
 }
-function Manager.flush(self)
-    for i,v in ipairs(chain_methods) do
-        self['_'..v] = nil
-        self['_'..v..'_string'] = nil
-    end
-    self.is_select = nil
-    return self
-end
 function Manager.exec_raw(self)
     return query(self:to_sql())
 end
 local function _get_fk_table(attrs, fk)
+    -- in : attrs = {id=1, buyer__name='tom', buyer__id=2}, fk = 'buyer'
+    -- out: attrs = {id=1}, res = {name='tom', id=2}
     local res = {}
-    local prefix = fk..'__'
-    for k,v in pairs(attrs) do
-        if k:sub(1, #fk+2) == prefix then
-            res[k:sub(#fk+3)] = v
-            attrs[k] = nil
+    local prefix = fk..'__' -- buyer__
+    -- collect attributes belongs to fk
+    for k, v in pairs(attrs) do
+        if k:sub(1, #prefix) == prefix then
+            res[k:sub(#prefix+1)] = v
+            -- attrs.buyer__name finish its mission, delete it from attrs.
+            attrs[k] = nil 
         end
     end
     return res
@@ -90,16 +85,19 @@ function Manager.exec(self)
     if self.is_select and not(
         self._group or self._group_string or self._having or self._having_string) then
         -- none-group SELECT clause, wrap the results
+        local row_class = self.__model.row_class
         if self._select_join then
+            -- this is a join-select clause, wrap the related fields to a row
+            -- to get a foreign key model instance.
             for i, attrs in ipairs(res) do
-                res[i] = self.row_class:instance(attrs)
+                res[i] = row_class:instance(attrs)
                 for fk, fk_model in pairs(self._select_join) do 
                     attrs[fk] = fk_model.row_class:instance(_get_fk_table(attrs, fk))
                 end
             end
         else
             for i, attrs in ipairs(res) do
-                res[i] = self.row_class:instance(attrs)
+                res[i] = row_class:instance(attrs)
             end
         end            
     end
@@ -119,9 +117,9 @@ local STRING_RELATIONS = {
 }
 function Manager._parse_kv(self, key, value)
     local field, template, left_alias, right_alias, left_fk, right_name
-    local prefix = self.table_name
+    local current_model = self.__model
+    local prefix = current_model.meta.table_name
     local operator = 'exact'
-    local current_model = self
     local state = 'init'
     local first_join = true
 
@@ -151,15 +149,15 @@ function Manager._parse_kv(self, key, value)
                 end
                 if first_join then
                     first_join = false
-                    left_alias = self.table_name -- record
+                    left_alias = prefix -- record
                     left_fk = field -- buyer
                     right_alias = field --buyer
-                    right_name = current_model.table_name --user
+                    right_name = current_model.meta.table_name --user
                 else
                     left_alias = right_alias -- buyer
                     right_alias = right_alias..'__'..field -- buyer__detail
                     left_fk = field --detail 
-                    right_name = current_model.table_name -- detail
+                    right_name = current_model.meta.table_name -- detail
                 end
                 self:_add_to_join{
                     left_alias = left_alias, 
@@ -205,7 +203,7 @@ function Manager._parse_kv(self, key, value)
     return string_format(template, string_format('`%s`.`%s`', prefix, field), value)
 end 
 function Manager.parse_from(self)
-    local res = string_format('`%s`', self.table_name)
+    local res = string_format('`%s`', self.__model.meta.table_name)
     if self._join then
         -- k : mom, v.left: pet, v.right: user
         for i, v in ipairs(self._join) do
@@ -216,17 +214,13 @@ function Manager.parse_from(self)
     return res
 end
 function Manager._add_to_join(self, t)
-    local already_has
     for i, v in ipairs(self._join) do
         if (t.left_alias==v.left_alias and t.left_fk==v.left_fk 
             and t.right_alias==v.right_alias and t.right_name==v.right_name) then
-            already_has = true
-            break
+            return
         end
     end
-    if not already_has then
-        self._join[#self._join+1] = t
-    end
+    self._join[#self._join+1] = t
 end
 function Manager.join(self, params)
     if self._join == nil then
@@ -235,16 +229,15 @@ function Manager.join(self, params)
     if self._select_join == nil then
         self._select_join = {}
     end
-    -- 
     for i, fk_alias in ipairs(params) do
         -- order matters,  so used as a array
         self:_add_to_join{
-            left_alias = self.table_name,  -- record
+            left_alias = self.__model.meta.table_name,  -- record
             left_fk = fk_alias, -- buyer
             right_alias = fk_alias, -- buyer
-            right_name = self.foreignkeys[fk_alias].table_name} -- user
-        -- order doesn't matters and left join table is fixed(self.table_name), so used as a hash
-        self._select_join[fk_alias] = self.foreignkeys[fk_alias]
+            right_name = self.__model.foreignkeys[fk_alias].meta.table_name} -- user
+        -- order doesn't matters and left join table is fixed(self.meta.table_name), so used as a hash
+        self._select_join[fk_alias] = self.__model.foreignkeys[fk_alias]
     end
     return self
 end
@@ -260,11 +253,11 @@ function Manager.parse_select(self)
                 -- don't use this with out a space or '(' or alias, e.g. Manager:select{'field_a+field_b'}
                 res[#res+1] = v
             else
-                res[#res+1] = string_format('`%s`.`%s`', self.table_name, v)
+                res[#res+1] = string_format('`%s`.`%s`', self.meta.table_name, v)
             end
         end
     else
-        res[#res+1] = self.fields_string -- this is what '*' means
+        res[#res+1] = self.__model.meta.fields_string -- this is what '*' means
     end
     -- extra fields needed if Manager:join is used
     if self._select_join then
@@ -367,17 +360,19 @@ function Manager.parse_having(self)
 end
 function Manager.to_sql(self)
     -- note `parse_where` must be called before `parse_from` because foreignkeys stuff
+    local table_name = self.__model.meta.table_name
     if self._update then
         local where_clause = self:parse_where()
         local from_clause = self:parse_from()
         return string_format('UPDATE %s SET %s%s;', from_clause, 
-            utils.serialize_attrs(self._update, self.table_name), where_clause)
+            utils.serialize_attrs(self._update, table_name), where_clause)
     elseif self._create then
         -- this is always a single table operation
-        return string_format('INSERT INTO `%s` SET %s;', self.table_name, utils.serialize_attrs(self._create, self.table_name))
+        return string_format('INSERT INTO `%s` SET %s;', table_name, 
+            utils.serialize_attrs(self._create, table_name))
     elseif self._delete then 
         -- this is always a single table operation
-        return string_format('DELETE FROM `%s`%s;', self.table_name, self:parse_where())
+        return string_format('DELETE FROM `%s`%s;', table_name, self:parse_where())
     --SELECT..FROM..WHERE..GROUP BY..HAVING..ORDER BY
     else 
         self.is_select = true --for the `exec` method
@@ -388,7 +383,7 @@ function Manager.to_sql(self)
             where_clause, 
             self:parse_group(), self:parse_having(), 
             self:parse_order(), 
-            self._page_string  and ' LIMIT '..self._page_string or '')
+            (self._page_string  and ' LIMIT '..self._page_string) or '')
     end
 end
 function Manager.create(self, params)
@@ -499,4 +494,14 @@ function Manager.page(self, params)
     self._page_string = params
     return self
 end
+function Manager.flush(self)
+    for i,v in ipairs(chain_methods) do
+        self['_'..v] = nil
+        self['_'..v..'_string'] = nil
+    end
+    self.is_select = nil
+    self._select_join = nil
+    return self
+end
+
 return Manager

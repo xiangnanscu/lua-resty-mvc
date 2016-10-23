@@ -11,23 +11,40 @@ local string_format = string.format
 local table_concat = table.concat
 local ngx_localtime = ngx.localtime
 
--- `Row` is the main api for create, update and delete a database record
+
+local function row_tostring(t)
+    return t:render()
+end
+-- `Row` is the main api for create, update and delete a database record.
 -- the instance of `Row` should be a plain table, i.e. key should be a valid lua variable name, 
 -- value should be either a string or a number. if value is a boolean or table and you
 -- want to save it to database, you should provide a `lua_to_db` method for that field to convert 
--- the value to string or number. Currently no hook to convert the value read from database to
--- non-string or non-number. For exmaple, a BooleanField value read from database will be number
--- 0 or 1. a DateTimeField value will be a plain string.
+-- the value to string or number. 
 local Row = {}
 function Row.new(cls, attrs)
     attrs = attrs or {}
     cls.__index = cls
+    cls.__tostring = row_tostring
     return setmetatable(attrs, cls)
 end
+function Row.render(self)
+    return self.__model.render(self)
+end
+function Row.get_url(self)
+    return self.__model.get_url(self)
+end
+function Row.get_update_url(self)
+    return self.__model.get_update_url(self)
+end
+function Row.get_delete_url(self)
+    return self.__model.get_delete_url(self)
+end
 function Row.instance(cls, attrs)
-    -- attrs may be from db driver, try to use `db_to_lua` if the field specified
+    -- make a row object from attrs from a db driver(lua-resty-mysql), 
+    -- try to use `db_to_lua` to make some data suitable for lua's orm layer.
+    -- such as data from DateTimeField or ForeignKey.
     local self = cls:new(attrs)
-    local fields = self.fields
+    local fields = self.__model.fields
     for k, v in pairs(self) do
         local f = fields[k]
         if f and f.db_to_lua then
@@ -36,10 +53,26 @@ function Row.instance(cls, attrs)
     end
     return self
 end
+local function _check_field_value(name, field, value, all_errors, valid_attrs)
+    -- assume calling `lua_to_db` should always succeed
+    local value, errors = field:clean(value)
+    if errors then
+        for i, v in ipairs(errors) do
+            all_errors[#all_errors+1] = v
+        end
+    else
+        if field.lua_to_db then
+            value = field:lua_to_db(value)
+        end
+        valid_attrs[name] = value
+    end
+end
 function Row.create(self)
+    -- use this method before create a row to database
+    assert(self.id == nil, 'field `id` should be nil')
     local valid_attrs = {}
     local all_errors = {}
-    for name, field in pairs(self.fields) do
+    for name, field in pairs(self.__model.fields) do
         local value = self[name]
         if value == nil then
             -- no value, try to get from default or auto_now/auto_now_add
@@ -52,24 +85,14 @@ function Row.create(self)
             self[name] = value
         else
             -- if value is given, auto_now/auto_now_add will be ignored
-            local value, errors = field:clean(value)
-            if errors then
-                for i, v in ipairs(errors) do
-                    all_errors[#all_errors+1] = v
-                end
-            else
-                if field.lua_to_db then
-                    value = field:lua_to_db(value)
-                end
-                valid_attrs[name] = value
-            end
+            _check_field_value(name, field, value, all_errors, valid_attrs)
         end
     end
     if next(all_errors) then
         return nil, all_errors
     end
-    local res, err = query(string_format( 'INSERT INTO `%s` SET %s;', 
-        self.table_name, utils.serialize_attrs(valid_attrs, self.table_name)))
+    local res, err = query(string_format('INSERT INTO `%s` SET %s;', 
+        self.__model.meta.table_name, utils.serialize_attrs(valid_attrs)))
     if res then
         self.id = res.insert_id
         return res
@@ -78,110 +101,28 @@ function Row.create(self)
     end
 end
 function Row.update(self)
+    -- use this method before update a row to database
+    assert(self.id, 'field `id` should not be nil')
     local valid_attrs = {}
     local all_errors = {}
-    for name, field in pairs(self.fields) do
+    for name, field in pairs(self.__model.fields) do
         if field.auto_now then
-            -- note we check the existence of `auto_now` before the value
-            -- this is different from Row.create, becuase we want to update the time 
-            -- to now every time we update a row even if a value is provided for this field
+            -- note we check the existence of `auto_now` before checking the value
+            -- this is different from Row.create, becuase a field with auto_now 
+            -- should be done like this.
             valid_attrs[name] = ngx_localtime()
         else
             local value = self[name]
-            if value == nil then
-                -- do nothing 
-            else
-                local value, errors = field:clean(value)
-                if errors then
-                    for i, v in ipairs(errors) do
-                        all_errors[#all_errors+1] = v
-                    end
-                else
-                    if field.lua_to_db then
-                        value = field:lua_to_db(value)
-                    end
-                    valid_attrs[name] = value
-                end
+            if value ~= nil then
+                _check_field_value(name, field, value, all_errors, valid_attrs)
             end
         end
     end
     if next(all_errors) then
         return nil, all_errors
     end
-    local res, err = query(string_format( 'UPDATE `%s` SET %s WHERE id=%s;', 
-        self.table_name, utils.serialize_attrs(valid_attrs, self.table_name), self.id))
-    if res then
-        return res
-    else
-        return nil, {err}
-    end
-end
--- *_without_clean is used when you're sure no need to perform validations, 
--- e.g. when the a string comes from `resty.mvc.form` cleaned_data. 
--- note, `lua_to_db` is still used to ensure correct type saved to database.
-function Row.create_without_clean(self)
-    local valid_attrs = {}
-    for name, field in pairs(self.fields) do
-        local value = self[name]
-        if value == nil then
-            if field.default then
-                valid_attrs[name] = field:get_default()
-            elseif field.auto_now or field.auto_now_add then
-                valid_attrs[name] = ngx_localtime()
-            end
-        else
-            if field.lua_to_db then
-                value = field:lua_to_db(value)
-            end
-            valid_attrs[name] = value
-        end
-    end
-    local res, err = query(string_format( 'INSERT INTO `%s` SET %s;', 
-        self.table_name, utils.serialize_attrs(valid_attrs, self.table_name)))
-    if res then
-        self.id = res.insert_id
-        return res
-    else
-        return nil, {err}
-    end
-end
-function Row.update_without_clean(self)
-    local valid_attrs = {}
-    for name, field in pairs(self.fields) do
-        if field.auto_now then
-            valid_attrs[name] = ngx_localtime()
-        else
-            local value = self[name]
-            if value == nil then
-                -- do nothing 
-            else
-                if field.lua_to_db then
-                    value = field:lua_to_db(value)
-                end
-                valid_attrs[name] = value
-            end
-        end
-    end
-    local res, err = query(string_format('UPDATE `%s` SET %s WHERE id=%s;', 
-        self.table_name, utils.serialize_attrs(valid_attrs, self.table_name), self.id))
-    if res then
-        return res
-    else
-        return nil, {err}
-    end
-end
-function Row.direct_save(self, add)
-    -- directly pass the key/value to database without any validations or type checks.
-    -- cautions to this api, you should use it internally
-    local res, err
-    if add then
-        res, err = query(string_format( 'INSERT INTO `%s` SET %s;', 
-            self.table_name, utils.serialize_attrs(self, self.table_name)))
-        self.id = res.insert_id
-    else
-        res, err = query(string_format('UPDATE `%s` SET %s WHERE id=%s;', 
-            self.table_name, utils.serialize_attrs(self, self.table_name), self.id))    
-    end
+    local res, err = query(string_format('UPDATE `%s` SET %s WHERE id = %s;', 
+        self.__model.meta.table_name, utils.serialize_attrs(valid_attrs), self.id))
     if res then
         return res
     else
@@ -194,11 +135,33 @@ function Row.save(self, add)
     end
     return self:update()
 end
-function Row.delete(self)
-    if not self.id then
-        return nil, 'No id to delete'
+function Row.direct_create(self)
+    local res, err = query(string_format('INSERT INTO `%s` SET %s;', 
+        self.__model.meta.table_name, utils.serialize_attrs(self)))
+    if not res then
+        return nil, {err}
     end
-    return query(string_format('DELETE FROM `%s` WHERE id=%s;', self.table_name, self.id))
+    self.id = res.insert_id
+    return res
+end
+function Row.direct_update(self)
+    local res, err = query(string_format('UPDATE `%s` SET %s WHERE id = %s;', 
+        self.__model.meta.table_name, utils.serialize_attrs(self), self.id)) 
+    if not res then
+        return nil, {err}
+    end
+    return res
+end
+function Row.direct_save(self, add)
+    if add then
+        return self:direct_create()
+    end
+    return self:direct_update()
+end
+function Row.delete(self)
+    assert(self.id, 'field `id` should not be nil')
+    return query(string_format('DELETE FROM `%s` WHERE id = %s;', 
+        self.__model.meta.table_name, self.id))
 end
 
 return Row
