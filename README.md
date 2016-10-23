@@ -3,6 +3,7 @@
 With just a plain folder with several simple files, you can enjoy basic but most frequently used MVC features.
 # Dependencies
 [lua-resty-mysql](https://github.com/openresty/lua-resty-mysql)
+
 [lua-resty-reqargs](https://github.com/bungle/lua-resty-reqargs)
 
 # Quick start
