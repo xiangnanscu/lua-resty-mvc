@@ -3,15 +3,16 @@ local Model = require"resty.mvc.model"
 local Field = require"resty.mvc.modelfield"
 local Q = require"resty.mvc.q"
 local Migrate = require"resty.mvc.migrate"
+local normalize_model = require"resty.mvc.apps".normalize_model
 
-local Moreinfo = Model:class{table_name = "moreinfo", 
+local Moreinfo = Model:new{table_name = "moreinfo", 
     fields = {
         weight = Field.FloatField{min=0},
         height = Field.FloatField{min=0}, 
     }
 }
 
-local Detail = Model:class{
+local Detail = Model:new{
     table_name = "detail", 
     fields = {
         sex = Field.CharField{maxlen=1},
@@ -20,7 +21,7 @@ local Detail = Model:class{
     }
 }
 
-local User = Model:class{
+local User = Model:new{
     table_name = "user", 
     fields = {
         name = Field.CharField{maxlen=50},
@@ -29,7 +30,7 @@ local User = Model:class{
     }
 }
 
-local Product = Model:class{
+local Product = Model:new{
     table_name = "product", 
     fields = {
         name = Field.CharField{maxlen=50},
@@ -37,7 +38,7 @@ local Product = Model:class{
     }
 }
 
-local Record = Model:class{
+local Record = Model:new{
     table_name = "record", 
     fields = {
         buyer = Field.ForeignKey{User},
@@ -49,7 +50,10 @@ local Record = Model:class{
 }
 
 local models = {Record, Product, User, Detail, Moreinfo}
-Migrate(models, false)
+for name, model in pairs({User=User, Product=Product, Record=Record, Detail=Detail, Moreinfo=Moreinfo}) do
+    normalize_model(model, 'test', name)
+end
+Migrate.main(models, false)
 
 local function eval(s)
     local f = loadstring('return '..s)
