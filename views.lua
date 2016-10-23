@@ -5,16 +5,16 @@ local function init()
     if not res then
         return ngx.print('Fail to turn off foreign key checks, '..err)
     end
-    res, err = query("drop table if exists user")
+    res, err = query("drop table if exists account_user")
     if not res then
-        return ngx.print('Fail to drop table `user`, '..err)
+        return ngx.print('Fail to drop table `account_user`, '..err)
     end
     res, err = query("SET FOREIGN_KEY_CHECKS=1;")
     if not res then
         return ngx.print('Fail to turn on foreign key checks, '..err)
     end
     res, err = query(
-[[CREATE TABLE `user` (
+[[CREATE TABLE `account_user` (
 `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
 `update_time` datetime NOT NULL,
 `create_time` datetime NOT NULL,
@@ -28,10 +28,10 @@ PRIMARY KEY (`id`),
 UNIQUE KEY `id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;]])
     if not res then
-        return ngx.print('Fail to create a table `user`, '..err)
+        return ngx.print('Fail to create a table `account_user`, '..err)
     end
     return ngx.print(
-        'Congratulations! You have created table `user`'
+        'Congratulations! You have created table `account_user`'
         ..'<h1>now please try <a href="/register">register</a></h1>.')
 end
 

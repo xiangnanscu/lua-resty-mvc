@@ -1,6 +1,9 @@
 # lua-resty-mvc
 **You don't need that complicated MVC framework!**
 With just a plain folder with several simple files, you can enjoy basic but most frequently used MVC features.
+# Dependencies
+[lua-resty-mysql](https://github.com/openresty/lua-resty-mysql)
+[lua-resty-reqargs](https://github.com/bungle/lua-resty-reqargs)
 
 # Quick start
 Config your database in `lib/resty/mvc/query.lua` and try to start from `nginx -p . -c nginx.conf`, and visit [http://localhost:8080/init](http://localhost:8080/init)

@@ -1,0 +1,52 @@
+2016/10/23 03:55:40 [alert] 1809#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/10/23 03:55:53 [error] 1811#0: *1 "./html/index.html" is not found (2: No such file or directory), client: 10.240.0.214, server: localhost, request: "GET / HTTP/1.1", host: "repos-pronan.c9users.io", referrer: "https://ide.c9.io/pronan/repos"
+2016/10/23 03:55:54 [error] 1811#0: *2 open() "./html/favicon.ico" failed (2: No such file or directory), client: 10.240.0.5, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "repos-pronan.c9users.io"
+2016/10/23 03:55:54 [error] 1811#0: *3 open() "./html/favicon.ico" failed (2: No such file or directory), client: 10.240.1.14, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "repos-pronan.c9users.io"
+2016/10/23 03:56:02 [error] 1811#0: *4 connect() failed (111: Connection refused), client: 10.240.1.30, server: localhost, request: "GET /init HTTP/1.1", host: "repos-pronan.c9users.io"
+2016/10/23 04:08:34 [error] 1811#0: *10 lua entry thread aborted: runtime error: ./models.lua:6: attempt to call method 'class' (a nil value)
+stack traceback:
+coroutine 0:
+	[C]: in function 'require'
+	./views.lua:39: in function 'register'
+	content_by_lua(nginx.conf:19):1: in function <content_by_lua(nginx.conf:19):1>, client: 10.240.0.230, server: localhost, request: "GET /register HTTP/1.1", host: "repos-pronan.c9users.io", referrer: "https://repos-pronan.c9users.io/init"
+ls: cannot access apps/: No such file or directory
+2016/10/23 04:18:40 [error] 1811#0: *13 lua entry thread aborted: runtime error: ./models.lua:19: attempt to call local 'normalize_model' (a nil value)
+stack traceback:
+coroutine 0:
+	[C]: in function 'require'
+	./views.lua:39: in function 'register'
+	content_by_lua(nginx.conf:19):1: in function <content_by_lua(nginx.conf:19):1>, client: 10.240.1.30, server: localhost, request: "GET /register HTTP/1.1", host: "repos-pronan.c9users.io", referrer: "https://repos-pronan.c9users.io/init"
+2016/10/23 04:21:30 [emerg] 2527#0: open() "./conf/dev" failed (2: No such file or directory)
+2016/10/23 04:21:38 [alert] 2531#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/10/23 04:21:38 [emerg] 2531#0: bind() to 0.0.0.0:8080 failed (98: Address already in use)
+2016/10/23 04:21:38 [emerg] 2531#0: bind() to 0.0.0.0:8080 failed (98: Address already in use)
+2016/10/23 04:21:38 [emerg] 2531#0: bind() to 0.0.0.0:8080 failed (98: Address already in use)
+2016/10/23 04:21:38 [emerg] 2531#0: bind() to 0.0.0.0:8080 failed (98: Address already in use)
+2016/10/23 04:21:38 [emerg] 2531#0: bind() to 0.0.0.0:8080 failed (98: Address already in use)
+2016/10/23 04:21:38 [emerg] 2531#0: still could not bind()
+2016/10/23 04:21:44 [alert] 2535#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/10/23 04:21:44 [notice] 2535#0: signal process started
+2016/10/23 04:21:44 [alert] 1810#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+ls: cannot access apps/: No such file or directory
+2016/10/23 04:21:50 [error] 2537#0: *14 lua entry thread aborted: runtime error: ./models.lua:19: attempt to call local 'normalize_model' (a nil value)
+stack traceback:
+coroutine 0:
+	[C]: in function 'require'
+	./views.lua:39: in function 'register'
+	content_by_lua(nginx.conf:19):1: in function <content_by_lua(nginx.conf:19):1>, client: 10.240.1.16, server: localhost, request: "GET /register HTTP/1.1", host: "repos-pronan.c9users.io"
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+2016/10/23 04:28:36 [alert] 2699#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/10/23 04:28:36 [notice] 2699#0: signal process started
+2016/10/23 04:28:36 [alert] 1810#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/10/23 04:28:41 [alert] 2704#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+2016/10/23 04:28:41 [notice] 2704#0: signal process started
+2016/10/23 04:28:46 [alert] 2709#0: lua_code_cache is off; this will hurt performance in ./nginx.conf:7
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory
+ls: cannot access apps/: No such file or directory

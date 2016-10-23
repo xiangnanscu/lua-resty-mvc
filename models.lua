@@ -1,9 +1,8 @@
 local Model = require"resty.mvc.model"
 local Field = require"resty.mvc.modelfield"
+local normalize_model = require"resty.mvc.apps".normalize_model
 
-local M = {}
-
-M.User = Model:class{table_name='user', 
+local User = Model:new{
     fields = {
         username = Field.CharField{maxlen=20, minlen=6, unique=true},
         password = Field.CharField{maxlen=28, minlen=8},
@@ -16,4 +15,6 @@ M.User = Model:class{table_name='user',
     }, 
 }
 
-return M
+return {
+    User = normalize_model(User,'account','User'),
+}
