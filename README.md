@@ -5,7 +5,8 @@ With just a plain folder with several simple files, you can enjoy basic but most
 [lua-resty-mysql](https://github.com/openresty/lua-resty-mysql)
 
 [lua-resty-reqargs](https://github.com/bungle/lua-resty-reqargs)
-
+# Use it in a project
+see [op](https://github.com/pronan/op).
 # Quick start
 Config your database in `lib/resty/mvc/query.lua` and try to start from `nginx -p . -c nginx.conf`, and visit [http://localhost:8080/init](http://localhost:8080/init)
 # Api taste
