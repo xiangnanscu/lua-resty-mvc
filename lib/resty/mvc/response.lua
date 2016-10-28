@@ -1,10 +1,20 @@
 local template = require"resty.mvc.template"
-local apps = require"resty.mvc.apps"
+local settings = require"resty.mvc.settings"
 local encode = require "cjson.safe".encode
 local utils = require"resty.mvc.utils"
 local bake = require"resty.mvc.cookie".bake
 local open = io.open
 
+--@./resty/mvc/response.lua
+--@/usr/local/openresty/site/lualib/resty/response.lua
+--ADMIN_DIR = './resty/mvc/html/'
+local ADMIN_DIR = (debug.getinfo(1,"S").source:match'^@(.*)response.lua$')..'html/'
+local COOKIE_PATH = settings.COOKIE.path
+local COOKIE_EXPIRES = settings.COOKIE.expires
+local GLOBAL_CONTEXT = {
+    __domain='example.com',
+}
+local TEMPLATE_DIRS = settings.TEMPLATE_DIRS
 
 local function smart_set_cookie(t, k, v)
     -- k can't be `__save`, `__index`, `__newindex`
@@ -50,13 +60,6 @@ function HttpResponse.exec_headers(self)
     end
 end
 
---@./resty/mvc/response.lua
---@/usr/local/openresty/site/lualib/resty/response.lua
---ADMIN_DIR = './resty/mvc/html/'
-local ADMIN_DIR = (debug.getinfo(1,"S").source:match'^@(.*)response.lua$')..'html/'
-local GLOBAL_CONTEXT = {
-    __domain='example.com',
-}
 local function readfile(path)
     local file = open(path, "rb")
     if not file then 
@@ -70,8 +73,9 @@ local default_loader = template.load
 local function admin_loader(path)
     return readfile(ADMIN_DIR..path) or path
 end
+
 local function app_loader(path)
-    for i, dir in ipairs(apps.TEMPLATE_DIRS) do
+    for i, dir in ipairs(TEMPLATE_DIRS) do
         local res = readfile(dir..path)
         if res then
             return res

@@ -296,7 +296,8 @@ function ListView.get_queryset(self)
         size = math.floor(size)
     end    
     local limit_string = string.format('%s, %s', (page-1)*size, size)
-    local sql = self.model:page(limit_string)
+    kwargs.page = nil
+    local sql = self.model:where(kwargs):page(limit_string)
     if self.order then
         sql = sql:order(self.order)
     end

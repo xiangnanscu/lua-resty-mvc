@@ -4,8 +4,6 @@ local DEBUG = true
 
 local APPS = nil -- {'foo', 'bar'}
 
-local USER_MODEL = nil -- {'resty.mvc.auth.models', 'User'}
-
 local DATABASE ={
     connect_table = { host     = "127.0.0.1", 
                       port     = 3306, 
@@ -18,7 +16,6 @@ local DATABASE ={
     pool_size       = 50,
 }
 
-local LAZY_SESSION = true
 local MIDDLEWARES = {
     "resty.mvc.middlewares.post", 
     "resty.mvc.middlewares.cookie", 
@@ -40,12 +37,6 @@ local function normalize(settings)
     
     settings.COOKIE.expires = utils.time_parser(settings.COOKIE.expires)
     settings.SESSION.expires = utils.time_parser(settings.SESSION.expires)
-    
-    for i, ware in ipairs(settings.MIDDLEWARES) do
-        if type(ware) == 'string' then
-            settings.MIDDLEWARES[i] = require(ware)
-        end
-    end
     
 end
 

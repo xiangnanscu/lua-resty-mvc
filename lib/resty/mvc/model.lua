@@ -1,6 +1,7 @@
 local query = require"resty.mvc.query".single
 local Manager = require"resty.mvc.manager" 
 local Field = require"resty.mvc.modelfield"
+local Row = require"resty.mvc.row"
 local utils = require"resty.mvc.utils"
 local rawget = rawget
 local setmetatable = setmetatable
@@ -23,6 +24,64 @@ function Model.new(cls, attrs)
     attrs = attrs or {}
     cls.__index = cls
     return setmetatable(attrs, cls)
+end
+function Model.normalize(cls, app_name, model_name)
+    -- meta initialize
+    local meta = {}
+    for _, model in ipairs(utils.reversed_inherited_chain(cls)) do
+        utils.dict_update(meta, model.meta)
+    end
+    if meta.is_normalized then
+        return cls
+    end
+    -- row class
+    cls.row_class = Row:new{__model=cls}
+    -- always overwrite
+    meta.app_name = app_name
+    meta.model_name = model_name
+    -- table_name
+    local table_name = meta.table_name
+    if table_name then
+        assert(not table_name:find('__'), 'double underline `__` is not allowed in a table name')
+    else
+        meta.table_name = string.format('%s_%s', app_name, model_name:lower())
+    end
+    -- field_order
+    -- first set `id` field
+    if meta.auto_id then
+        cls.fields.id = Field.AutoField{primary_key = true}
+    end
+    -- then set order
+    if not meta.field_order then
+        local field_order = {}
+        for k, v in utils.sorted(cls.fields) do
+            field_order[#field_order+1] = k
+        end
+        meta.field_order = field_order
+    end
+    -- fields_string
+    meta.fields_string = table.concat(
+        utils.map(meta.field_order, 
+                  function(e) return string.format("`%s`.`%s`", meta.table_name, e) end), 
+        ', ')
+    -- url_model_name
+    if not meta.url_model_name then
+        meta.url_model_name = model_name:lower()
+    end
+    -- check fields
+    cls.foreignkeys = {}
+    for name, field in pairs(cls.fields) do
+        assert(not Row[name], name.." can't be used as a column name")
+        field.name = name
+        local errors = field:check()
+        assert(not next(errors), name..' check fails: '..table.concat(errors, ', '))
+        if field:get_internal_type() == 'ForeignKey' then
+            cls.foreignkeys[name] = field.reference
+        end
+    end
+    meta.is_normalized = true
+    cls.meta = meta
+    return cls
 end
 ------ row proxy methods -----
 function Model.render(row)

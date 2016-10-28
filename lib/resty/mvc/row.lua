@@ -54,7 +54,6 @@ function Row.instance(cls, attrs)
     return self
 end
 local function _check_field_value(name, field, value, all_errors, valid_attrs)
-    -- assume calling `lua_to_db` should always succeed
     local value, errors = field:clean(value)
     if errors then
         for i, v in ipairs(errors) do
@@ -62,6 +61,7 @@ local function _check_field_value(name, field, value, all_errors, valid_attrs)
         end
     else
         if field.lua_to_db then
+            -- assume calling `lua_to_db` should always succeed
             value = field:lua_to_db(value)
         end
         valid_attrs[name] = value

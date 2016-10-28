@@ -4,8 +4,6 @@
 -- http://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html
 local query = require"resty.mvc.query".single
 local utils = require"resty.mvc.utils"
-local apps = require"resty.mvc.apps"
-
 
 local function make_file(fn, content)
   local f, e = io.open(fn, "w+")
@@ -146,10 +144,6 @@ local function save_model_to_db(model, drop_existed_table)
     end
     return get_table_defination(model.meta.table_name)
 end
-local function get_models()
-    return apps.get_models()
-end
-
 local function save_models_to_db(models, drop_existed_table)
     local res = {}
     -- sort the models to an array for table creation in database
@@ -182,12 +176,6 @@ local function save_models_to_db(models, drop_existed_table)
 end
 
 local function main(models, drop_existed_table)
-    models = models or get_models
-    if type(models) == 'function' then
-        models = models()
-    elseif type(models) ~= 'table' then
-        assert(nil, 'invalid argument, should be either a function or table.')
-    end
     return save_models_to_db(models, drop_existed_table)
 end
 

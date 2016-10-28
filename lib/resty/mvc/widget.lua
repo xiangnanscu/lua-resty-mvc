@@ -150,7 +150,7 @@ function Select.render(self, name, value, attrs, choices)
 end
 function Select.render_options(self, choices, selected_choices)
     local output = {}
-    local choices_from_field = self.field and self.field.choices or {}
+    local choices_from_field = self.field and self.field.choices
     for i,v in ipairs(utils.list(choices_from_field, self.choices, choices)) do
         local option_value, option_label = v[1], v[2]
         if type(option_label) == 'table' then
@@ -172,7 +172,7 @@ function Select.render_option(self, selected_choices, option_value, option_label
     local selected = false
     local j
     for i, v in ipairs(selected_choices) do
-        if v == option_value then
+        if v == option_value or v == tostring(option_value) then
             selected = true
             j = i
             break
@@ -184,9 +184,7 @@ function Select.render_option(self, selected_choices, option_value, option_label
         if not self.allow_multiple_selected then
             -- why remove?
             -- Only allow for a single selection.
-            -- loger('before:', selected_choices)
             table_remove(selected_choices, j)
-            -- loger('after:', selected_choices)
         end
     end
     return string_format('<option value="%s"%s>%s</option>', 

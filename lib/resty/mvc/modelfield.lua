@@ -472,11 +472,23 @@ local DateTimeField = DateField:new{
     description = "Date (with time)", 
 }
 utils.dict_update(DateTimeField, DateTimeCheckMixin)
+function DateTimeField.client_to_lua(self, value)
+    if value == nil then
+        return nil
+    end
+    if type(value) == 'table' then
+        -- simply consider it as a lua-resty-datetime object
+        return value
+    end
+    value = tostring(value)
+    local res, err = ngx_re_match(value, self.format_re, 'jo')
+    if not res then
+        return nil, self.error_messages.invalid
+    end
+    return datetime.new(value)
+end
 function DateTimeField.db_to_lua(self, value)
-    --loger('DateTimeField.db_to_lua:', type(value), value)
-    local res = datetime.new(value)
-    --loger('DateTimeField.db_to_lua res:', res.number)
-    return res
+    return datetime.new(value)
 end
 function DateTimeField.lua_to_db(self, value)
     if type(value) == 'table' then

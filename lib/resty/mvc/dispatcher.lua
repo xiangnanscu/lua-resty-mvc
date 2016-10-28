@@ -1,4 +1,3 @@
-local Bootstrap = require"resty.mvc.bootstrap"
 local Request = require"resty.mvc.request"
 local Response = require"resty.mvc.response"
 local settings = require"resty.mvc.settings"
@@ -16,6 +15,9 @@ function Dispatcher.instance(cls, attrs)
     self.response_processors = {}
     self.view_processors = {}
     for i, ware in ipairs(self.middlewares) do
+        if type(ware) == 'string' then
+            ware = require(ware)
+        end
         if ware.process_request then
             table.insert(self.request_processors, ware.process_request)
         end
@@ -41,43 +43,42 @@ function Dispatcher.match(self, uri)
     local request = Request:new{kwargs=kwargs}
     local response, err
     for i, processor in ipairs(self.request_processors) do
-        response = processor(request)
-        if response then
+        response, err = processor(request)
+        if err or response then
             break
         end
     end
-    if not response then
+    if not response and not err then
         for i, processor in ipairs(self.view_processors) do
-            response = processor(request, view_func, kwargs)
-            if response then
+            response, err = processor(request, view_func, kwargs)
+            if err or response then
                 break
             end
         end
     end
-    if not response then
-        response = view_func(request)
-        if not response then
-            return ngx.print("No response object returned.")
-        end
+    if not response and not err then
+        response, err = view_func(request)
+    end
+    if err then
+        return ngx.print(err)
+    elseif not response then
+        return ngx.print("No response object returned.")
     end
     if response.render then
         response.body = response:render()
     end
     for i, processor in ipairs(self.response_processors) do
-        response = processor(request, response)
-        if not response then
+        response, err = processor(request, response)
+        if err then
+            return ngx.print(err)
+        elseif not response then
             return ngx.print("No response object returned.")
         end
     end
     return response:exec()
 end
 
-local dispatcher = Dispatcher:instance{
-    router = Bootstrap.router,
-    middlewares = settings.MIDDLEWARES,
-    debug = settings.debug,
-}
 
-return function() 
-    return dispatcher:match(ngx.var.uri) end
+
+return Dispatcher
     
