@@ -70,7 +70,7 @@ function Field.instance(cls, attrs)
     return self
 end
 function Field.check(self, kwargs)
-    errors = {}
+    local errors = {}
     errors[#errors+1] = self:_check_field_name()
     errors[#errors+1] = self:_check_choices()
     errors[#errors+1] = self:_check_db_index()
@@ -117,10 +117,10 @@ end
 function Field.client_to_lua(self, value)
     return value
 end
--- function Field.lua_to_db(self, value)
---     -- get value prepared for database.
---     return value
--- end
+function Field.lua_to_db(self, value)
+    -- get value prepared for database.
+    return value
+end
 function Field.run_validators(self, value)
     if utils.is_empty_value(value) then
         return
@@ -324,7 +324,10 @@ function CharField.client_to_lua(self, value)
     return tostring(value)
 end
 function CharField.lua_to_db(self, value)
-    return self:client_to_lua(value)
+    if type(value) == 'string' or value == nil then
+        return value
+    end
+    return tostring(value)
 end
 function CharField.check(self, kwargs)
     local errors = Field.check(self, kwargs)
@@ -379,7 +382,10 @@ function TextField.client_to_lua(self, value)
     return tostring(value)
 end
 function TextField.lua_to_db(self, value)
-    return self:client_to_lua(value)
+    if type(value) == 'string' or value == nil then
+        return value
+    end
+    return tostring(value)
 end
 function TextField.get_internal_type(self)
     return "TextField"

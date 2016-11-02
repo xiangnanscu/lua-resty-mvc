@@ -124,6 +124,15 @@ function JsonResponse.instance(cls, jsondict)
     return self
 end
 
+local PlainResponse = HttpResponse:new()
+PlainResponse.__call = HttpResponseCaller
+function PlainResponse.instance(cls, attrs)
+    attrs = attrs or {}
+    attrs.content_type = 'text/plain; charset=utf-8'
+    local self = HttpResponse.instance(cls, attrs)
+    return self
+end
+
 local HttpRedirect = HttpResponse:new()
 HttpRedirect.__call = HttpResponseCaller
 function HttpRedirect.instance(cls, url, status)
@@ -137,8 +146,27 @@ function HttpRedirect.exec(self)
     return ngx.redirect(self.url, self.status)
 end
 
+local ErrorResponse = HttpResponse:new()
+ErrorResponse.__call = HttpResponseCaller
+if settings.DEBUG then
+    function ErrorResponse.instance(cls, message)
+        message = message or '500 internal server error'
+        message = message..'\n\n'..utils.repr(_G, 10)
+        local self = HttpResponse.instance(cls, {content_type='text/plain; charset=utf-8', body=message})
+        return self
+    end
+else
+    function ErrorResponse.instance(cls, message)
+        message = message or '500 internal server error'
+        local self = HttpResponse.instance(cls, {content_type='text/plain; charset=utf-8', body=message})
+        return self
+    end
+end
+
 return {
     HttpResponse = HttpResponse,
+    Plain = PlainResponse,
+    Error = ErrorResponse,
     Template = TemplateResponse,
     Json = JsonResponse, 
     Redirect = HttpRedirect, 

@@ -136,8 +136,13 @@ function Row.save(self, add)
     return self:update()
 end
 function Row.direct_create(self)
+    local db_value = {}
+    local fields = self.__model.fields
+    for k, v in pairs(self) do
+        db_value[k] = fields[k]:lua_to_db(v)
+    end
     local res, err = query(string_format('INSERT INTO `%s` SET %s;', 
-        self.__model.meta.table_name, utils.serialize_attrs(self)))
+        self.__model.meta.table_name, utils.serialize_attrs(db_value)))
     if not res then
         return nil, {err}
     end
@@ -145,8 +150,13 @@ function Row.direct_create(self)
     return res
 end
 function Row.direct_update(self)
+    local db_value = {}
+    local fields = self.__model.fields
+    for k, v in pairs(self) do
+        db_value[k] = fields[k]:lua_to_db(v)
+    end
     local res, err = query(string_format('UPDATE `%s` SET %s WHERE id = %s;', 
-        self.__model.meta.table_name, utils.serialize_attrs(self), self.id)) 
+        self.__model.meta.table_name, utils.serialize_attrs(db_value), self.id)) 
     if not res then
         return nil, {err}
     end

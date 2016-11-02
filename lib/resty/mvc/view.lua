@@ -44,7 +44,7 @@ function View.as_view(cls, init)
             return nil, 'Only accept arguments that class can find'
         end
     end
-    function _view(request)
+    local function _view(request)
         -- making a fresh copy for each request
         local init_copy = {}
         for k,v in pairs(init) do
@@ -75,7 +75,7 @@ function View.get_object(self)
     return self.model:get(kwargs)
 end
 function View.get_context_data(self, kwargs)
-    local context = {view=self}
+    local context = {view=self, model=self.model}
     if self.object then
         context.object = self.object
     end
@@ -297,6 +297,7 @@ function ListView.get_queryset(self)
     end    
     local limit_string = string.format('%s, %s', (page-1)*size, size)
     kwargs.page = nil
+    kwargs.size = nil
     local sql = self.model:where(kwargs):page(limit_string)
     if self.order then
         sql = sql:order(self.order)
