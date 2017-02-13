@@ -3,7 +3,6 @@ local Model = require"resty.mvc.model"
 local Field = require"resty.mvc.modelfield"
 local Q = require"resty.mvc.q"
 local Migrate = require"resty.mvc.migrate"
-local normalize_model = require"resty.mvc.apps".normalize_model
 
 local Moreinfo = Model:new{table_name = "moreinfo", 
     fields = {
@@ -51,7 +50,7 @@ local Record = Model:new{
 
 local models = {Record, Product, User, Detail, Moreinfo}
 for name, model in pairs({User=User, Product=Product, Record=Record, Detail=Detail, Moreinfo=Moreinfo}) do
-    normalize_model(model, 'test', name)
+    model:normalize('test', name)
 end
 Migrate.main(models, false)
 
