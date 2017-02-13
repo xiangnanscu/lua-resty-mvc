@@ -1,6 +1,5 @@
 local Model = require"resty.mvc.model"
 local Field = require"resty.mvc.modelfield"
-local normalize_model = require"resty.mvc.apps".normalize_model
 
 local User = Model:new{
     fields = {
@@ -16,5 +15,5 @@ local User = Model:new{
 }
 
 return {
-    User = normalize_model(User,'account','User'),
+    User = User:normalize('account','User'),
 }
